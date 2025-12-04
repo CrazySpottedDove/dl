@@ -9,6 +9,7 @@ find_package(spdlog CONFIG REQUIRED)
 
 add_library(dl_core STATIC
     src/tokenizer.cpp
+    src/cli.cpp
 )
 
 target_include_directories(dl_core PUBLIC ${CMAKE_SOURCE_DIR}/include)
