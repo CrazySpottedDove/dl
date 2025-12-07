@@ -10,7 +10,7 @@ namespace dl {
 class Parser
 {
 public:
-    Parser(std::vector<Token>& tokens);
+    Parser(std::vector<Token>& tokens, const std::string& file_name);
     AstNode* GetAstRoot() noexcept { return ast_root_.get(); }
 
 private:
@@ -245,7 +245,7 @@ private:
      * @return std::unique_ptr<AstNode>
      */
     std::unique_ptr<AstNode> block();
-
+    std::string              file_name_;
     size_t                   position_;
     std::vector<Token>&      tokens_;
     std::unique_ptr<AstNode> ast_root_;

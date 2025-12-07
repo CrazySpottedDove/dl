@@ -1,9 +1,8 @@
 #pragma once
-
-#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <string>
 namespace dl {
 enum class TokenType
 {
@@ -17,12 +16,17 @@ enum class TokenType
     WhiteSpace
 };
 
+struct CommentToken{
+    std::string source_;
+    std::size_t line_;
+};
+
 struct Token
 {
     // Token 类型
     TokenType type_;
     // Token 内容
-    std::string source_;
+    std::string_view source_;
     // Token 所在行号
     std::size_t line_;
 };
@@ -33,7 +37,7 @@ inline bool is_white_char(const char c)
 }
 
 const std::unordered_map<char, char> character_for_escape = {
-    {'r', '\r'}, {'n', '\n'}, {'t', '\t'}, {'"', '\"'}, {'\'', '\''}, {'\\', '\\'}};
+    {'r', '\r'}, {'n', '\n'}, {'t', '\t'}, {'"', '\"'}, {'\'', '\''}, {'\\', '\\'}, {'f', '\f'}, {'b', '\b'}, {'v', '\v'}};
 
 inline bool is_identifier_start_char(const char c)
 {

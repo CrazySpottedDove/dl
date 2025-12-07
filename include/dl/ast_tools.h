@@ -14,7 +14,7 @@ public:
     {}
 
     void PrintAst(const AstNode* ast);
-    void PrintAst(const AstNode* ast, const std::vector<Token>& comment_tokens);
+    void PrintAst(const AstNode* ast, const std::vector<CommentToken>& comment_tokens);
 
 private:
     void         print_token(const Token* token);
@@ -23,15 +23,15 @@ private:
     void         print_expr_format_mode(const AstNode* expr);
     void         print_stat(const AstNode* stat);
     void         print_stat_format_mode(const AstNode* stat);
-    const Token* comment_token();
+    const CommentToken* comment_token();
     inline void  indent()
     {
         for (int i = 0; i < indent_; ++i) {
-            out_ << "\t";
+            out_.put('\t');
         }
     }
-    inline void space() { out_ << " "; }
-    inline void breakline() { out_ << "\n"; }
+    inline void space() { out_ .put (' '); }
+    inline void breakline() { out_.put('\n'); }
 
     void        breakline_format_mode();
     bool        is_block_stat(AstNodeType type);
@@ -42,13 +42,13 @@ private:
     int                       indent_;
     std::size_t               line_               = 1;
     std::size_t               comment_index_      = 0;
-    const std::vector<Token>* comment_tokens_     = nullptr;
+    const std::vector<CommentToken>* comment_tokens_     = nullptr;
     bool                      line_start_         = true;
     bool                      last_is_block_stat_ = false;
     bool                      is_block_start_     = true;
 };
 
 void PrintAst(const AstNode* ast, std::ostream& out);
-void PrintAst(const AstNode* ast, const std::vector<Token>& comment_tokens, std::ostream& out);
+void PrintAst(const AstNode* ast, const std::vector<CommentToken>& comment_tokens, std::ostream& out);
 }   // namespace AstTools
 }   // namespace dl

@@ -1,6 +1,7 @@
 #include "dl/parser.h"
 #include "dl/token.h"
 #include <cstddef>
+#include <cstdio>
 #include <fmt/format.h>
 #include <magic_enum/magic_enum.hpp>
 #include <memory>
@@ -28,7 +29,7 @@ Token* Parser::peek(size_t offset) const noexcept
 
 std::string Parser::get_token_start_position(const Token* token) const noexcept
 {
-    return fmt::format("{}:", token->line_);
+    return fmt::format("{}:{}:", file_name_,token->line_);
 }
 
 bool Parser::is_block_follow() const noexcept
@@ -81,7 +82,8 @@ Token* Parser::expect(TokenType type, const std::string_view value)
 void Parser::error(const std::string_view message)
 {
     const auto& token = peek();
-    SPDLOG_ERROR("Error at {}: {}, token {}", get_token_start_position(token), message, token->source_);
+    SPDLOG_ERROR(
+        "Error at {} {}, token {}", get_token_start_position(token), message, token->source_);
     throw std::runtime_error("Parsing error");
 }
 
@@ -149,7 +151,6 @@ std::unique_ptr<AstNode> Parser::tableexpr()
             break;
         }
     }
-
     Token* close_brace = expect(TokenType::Symbol, "}");
     return std::make_unique<TableLiteral>(
         std::move(entries), std::move(seperators), open_brace, close_brace);
@@ -400,7 +401,7 @@ std::unique_ptr<AstNode> Parser::exprstat()
 
     std::vector<std::unique_ptr<AstNode>> lhs;
     lhs.push_back(std::move(ex));
-    std::vector<Token*>                   lhs_separator;
+    std::vector<Token*> lhs_separator;
     while (peek()->source_ == ",") {
         lhs_separator.push_back(get());
         auto lhs_expr = primaryexpr();
@@ -411,9 +412,9 @@ std::unique_ptr<AstNode> Parser::exprstat()
         lhs.push_back(std::move(lhs_expr));
     }
     auto                                  assign_token = expect(TokenType::Symbol, "=");
-    std::vector<std::unique_ptr<AstNode>> rhs          ;
+    std::vector<std::unique_ptr<AstNode>> rhs;
     rhs.push_back(expr());
-    std::vector<Token*>                   rhs_separator;
+    std::vector<Token*> rhs_separator;
     while (peek()->source_ == ",") {
         rhs_separator.push_back(get());
         rhs.push_back(expr());
@@ -592,67 +593,71 @@ std::unique_ptr<AstNode> Parser::retstat()
     return std::make_unique<ReturnStat>(std::move(expr_list), return_token, comma_list);
 }
 
-std::unique_ptr<AstNode> Parser::breakstat() {
+std::unique_ptr<AstNode> Parser::breakstat()
+{
     auto break_token = get();
     return std::make_unique<BreakStat>(break_token);
 }
 
-std::unique_ptr<AstNode> Parser::gotostat() {
-    auto goto_token = get();
+std::unique_ptr<AstNode> Parser::gotostat()
+{
+    auto goto_token  = get();
     auto label_token = expect(TokenType::Identifier);
     return std::make_unique<GotoStat>(goto_token, label_token);
 }
 
-std::unique_ptr<AstNode> Parser::labelstat(){
+std::unique_ptr<AstNode> Parser::labelstat()
+{
     auto label_start_token = get();
-    auto label_name_token = expect(TokenType::Identifier);
-    auto label_end_token =  expect(TokenType::Symbol, "::");
+    auto label_name_token  = expect(TokenType::Identifier);
+    auto label_end_token   = expect(TokenType::Symbol, "::");
     return std::make_unique<LabelStat>(label_start_token, label_name_token, label_end_token);
 }
 
-std::unique_ptr<AstNode> Parser::statement(bool& is_last) {
+std::unique_ptr<AstNode> Parser::statement(bool& is_last)
+{
     Token* token = peek();
-    if(token->source_ == "::"){
+    if (token->source_ == "::") {
         is_last = false;
         return labelstat();
     }
-    if(token->source_ == "if"){
+    if (token->source_ == "if") {
         is_last = false;
         return ifstat();
     }
-    if(token->source_ == "while"){
+    if (token->source_ == "while") {
         is_last = false;
         return whilestat();
     }
-    if(token->source_ == "do"){
+    if (token->source_ == "do") {
         is_last = false;
         return dostat();
     }
-    if(token->source_ == "for"){
+    if (token->source_ == "for") {
         is_last = false;
         return forstat();
     }
-    if(token->source_ == "repeat"){
+    if (token->source_ == "repeat") {
         is_last = false;
         return repeatstat();
     }
-    if(token->source_ == "function"){
+    if (token->source_ == "function") {
         is_last = false;
         return funcdecl_named();
     }
-    if(token->source_ == "local"){
+    if (token->source_ == "local") {
         is_last = false;
         return localdecl();
     }
-    if(token->source_ == "return"){
+    if (token->source_ == "return") {
         is_last = true;
         return retstat();
     }
-    if(token->source_ == "break"){
+    if (token->source_ == "break") {
         is_last = true;
         return breakstat();
     }
-    if(token->source_ == "goto"){
+    if (token->source_ == "goto") {
         is_last = false;
         return gotostat();
     }
@@ -660,22 +665,25 @@ std::unique_ptr<AstNode> Parser::statement(bool& is_last) {
     return exprstat();
 }
 
-std::unique_ptr<AstNode> Parser::block() {
+std::unique_ptr<AstNode> Parser::block()
+{
     std::vector<std::unique_ptr<AstNode>> statements;
-    std::vector<Token*> semicolons;
-    bool is_last = false;
-    while(!is_last && !is_block_follow()){
+    std::vector<Token*>                   semicolons;
+    bool                                  is_last = false;
+    while (!is_last && !is_block_follow()) {
         statements.push_back(statement(is_last));
-        if(peek()->source_ == ";" && peek()->type_ == TokenType::Symbol){
+        if (peek()->source_ == ";" && peek()->type_ == TokenType::Symbol) {
             semicolons.push_back(get());
         }
     }
     return std::make_unique<StatList>(std::move(statements), std::move(semicolons));
 }
 
-Parser::Parser(std::vector<Token>& tokens)
-    : position_(0)
+Parser::Parser(std::vector<Token>& tokens, const std::string& file_name)
+    : file_name_(file_name)
+    , position_(0)
     , tokens_(tokens)
+
 {
     ast_root_ = block();
 }

@@ -1,18 +1,18 @@
 #pragma once
 #include "dl/token.h"
 #include <vector>
-
+#include <string>
 namespace dl {
 #define DL_TOKENIZER_EOF '\0'
 #define INVALID_LONG_STRING_DELIMITER_LENGTH -1
 class Tokenizer
 {
 public:
-    Tokenizer(const std::string&& text, const int work_mode);
+    Tokenizer(std::string&& text, const std::string& file_name, const int work_mode);
 
     void Print() const noexcept;
     std::vector<Token>& getTokens() noexcept { return tokens_; }
-    std::vector<Token>& getCommentTokens() noexcept { return comment_tokens_; }
+    std::vector<CommentToken>& getCommentTokens() noexcept { return comment_tokens_; }
 private:
     // 查看当前位置往前看第offset个字符
     char peek(size_t offset = 0) const noexcept;
@@ -47,10 +47,11 @@ private:
     // 接收类似于 printf 接收的参数
     void error( const char* fmt, ... ) const;
 
+    std::string file_name_;
     std::string        text_;
     size_t             position_ = 0;
     std::vector<Token> tokens_;
-    std::vector<Token> comment_tokens_;
+    std::vector<CommentToken> comment_tokens_;
     size_t             length_ = 0;
     size_t line_ = 1;
 };

@@ -1,4 +1,6 @@
 {
+    "name": "dl",
+    "version-string": "0.0.1",
     "dependencies":[
         "spdlog",
         "magic-enum"

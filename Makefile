@@ -1,5 +1,4 @@
 VCPKG = vcpkg
-VCPKG_PKGS = nlohmann-json nanoflann
 VCPKG_TOOLCHAIN = $(VCPKG_ROOT)/scripts/buildsystems/vcpkg.cmake
 BUILD_DIR = build
 

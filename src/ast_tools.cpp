@@ -25,7 +25,7 @@ void AstPrinter::print_token_format_mode(const Token* token)
                 // print 前 indent 已经做好，所以不用重复 indent()
                 // 我们只可能有短注释
                 out_ << comment->source_;
-                out_ << "\n";
+                out_.put('\n');
                 ++comment_index_;
                 indent();
             }
@@ -38,7 +38,7 @@ void AstPrinter::print_token_format_mode(const Token* token)
     out_ << token->source_;
 }
 
-const Token* AstPrinter::comment_token()
+const CommentToken* AstPrinter::comment_token()
 {
     return &(*comment_tokens_).at(comment_index_);
 }
@@ -54,7 +54,7 @@ void AstPrinter::breakline_format_mode()
             ++comment_index_;
         }
     }
-    out_ << "\n";
+    out_.put('\n');
     line_start_ = true;
 }
 
@@ -167,10 +167,7 @@ void AstPrinter::print_expr(const AstNode* expr)
         }
         print_token(node->token_close_paren_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
-        indent();
         print_token(node->token_end_);
         return;
     }
@@ -190,11 +187,9 @@ void AstPrinter::print_expr(const AstNode* expr)
         print_token(node->token_open_brace_);
         if (!node->entry_list_.empty()) {
             breakline();
-            inc_indent();
             for (size_t i = 0; i < node->entry_list_.size(); ++i) {
                 auto       entry      = node->entry_list_[i].get();
                 const auto entry_type = entry->GetType();
-                indent();
                 if (entry_type == TableEntryType::Field) {
                     auto field_entry = static_cast<const FieldEntry*>(entry);
                     print_token(field_entry->field_);
@@ -223,8 +218,6 @@ void AstPrinter::print_expr(const AstNode* expr)
                 }
                 breakline();
             }
-            dec_indent();
-            indent();
         }
         print_token(node->token_close_brace_);
         return;
@@ -241,7 +234,6 @@ void AstPrinter::print_stat(const AstNode* stat)
         }
         return;
     }
-    indent();
     if (stat->GetType() == AstNodeType::BreakStat) {
         print_token(stat->GetFirstToken());
         breakline();
@@ -305,10 +297,7 @@ void AstPrinter::print_stat(const AstNode* stat)
         }
         print_token(function_node->token_close_paren_);
         breakline();
-        inc_indent();
         print_stat(function_node->body_.get());
-        dec_indent();
-        indent();
         print_token(function_node->token_end_);
         breakline();
         return;
@@ -333,10 +322,7 @@ void AstPrinter::print_stat(const AstNode* stat)
         }
         print_token(node->token_close_paren_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
-        indent();
         print_token(node->token_end_);
         breakline();
         return;
@@ -345,10 +331,7 @@ void AstPrinter::print_stat(const AstNode* stat)
         auto node = static_cast<const RepeatStat*>(stat);
         print_token(node->token_repeat_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
-        indent();
         print_token(node->token_until_);
         space();
         print_expr(node->condition_.get());
@@ -379,10 +362,7 @@ void AstPrinter::print_stat(const AstNode* stat)
         space();
         print_token(node->token_do_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
-        indent();
         print_token(node->token_end_);
         breakline();
         return;
@@ -411,10 +391,7 @@ void AstPrinter::print_stat(const AstNode* stat)
         space();
         print_token(node->token_do_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
-        indent();
         print_token(node->token_end_);
         breakline();
         return;
@@ -427,10 +404,7 @@ void AstPrinter::print_stat(const AstNode* stat)
         space();
         print_token(node->token_do_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
-        indent();
         print_token(node->token_end_);
         breakline();
         return;
@@ -439,10 +413,7 @@ void AstPrinter::print_stat(const AstNode* stat)
         auto node = static_cast<const DoStat*>(stat);
         print_token(node->token_do_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
-        indent();
         print_token(node->token_end_);
         breakline();
         return;
@@ -455,11 +426,8 @@ void AstPrinter::print_stat(const AstNode* stat)
         space();
         print_token(node->token_then_);
         breakline();
-        inc_indent();
         print_stat(node->body_.get());
-        dec_indent();
         for (size_t i = 0; i < node->else_clause_list_.size(); ++i) {
-            indent();
             auto clause = node->else_clause_list_[i].get();
             print_token(clause->token_);
             if (clause->GetCondition()) {
@@ -473,7 +441,6 @@ void AstPrinter::print_stat(const AstNode* stat)
             print_stat(clause->body_.get());
             dec_indent();
         }
-        indent();
         print_token(node->token_end_);
         breakline();
         return;
@@ -658,42 +625,70 @@ void AstPrinter::print_expr_format_mode(const AstNode* expr)
         auto node = static_cast<const TableLiteral*>(expr);
         print_token_format_mode(node->token_open_brace_);
         if (!node->entry_list_.empty()) {
-            breakline_format_mode();
-            inc_indent();
-            for (size_t i = 0; i < node->entry_list_.size(); ++i) {
-                auto       entry      = node->entry_list_[i].get();
-                const auto entry_type = entry->GetType();
-                indent();
-                if (entry_type == TableEntryType::Field) {
-                    auto field_entry = static_cast<const FieldEntry*>(entry);
-                    print_token_format_mode(field_entry->field_);
-                    space();
-                    print_token_format_mode(field_entry->token_equals_);
-                    space();
-                    print_expr_format_mode(field_entry->value_.get());
+            // 对于纯 value entry 且较短的表，尝试一行输出
+            bool one_line = true;
+            if(node->entry_list_.size() > 10){
+                one_line = false;
+            }else{
+                for (size_t i = 0; i < node->entry_list_.size(); ++i) {
+                    const auto entry_type = node->entry_list_[i]->GetType();
+                    if (entry_type != TableEntryType::Value) {
+                        one_line = false;
+                        break;
+                    }
                 }
-                else if (entry_type == TableEntryType::Index) {
-                    auto index_entry = static_cast<const IndexEntry*>(entry);
-                    print_token_format_mode(index_entry->token_open_bracket_);
-                    print_expr_format_mode(index_entry->index_.get());
-                    print_token_format_mode(index_entry->token_close_bracket_);
-                    space();
-                    print_token_format_mode(index_entry->token_equals_);
-                    space();
-                    print_expr_format_mode(index_entry->value_.get());
-                }
-                else if (entry_type == TableEntryType::Value) {
+            }
+
+            if(one_line){
+                // 单行输出
+                for (size_t i = 0; i < node->entry_list_.size(); ++i) {
+                    auto       entry      = node->entry_list_[i].get();
                     auto value_entry = static_cast<const ValueEntry*>(entry);
                     print_expr_format_mode(value_entry->value_.get());
+                    // Other entry type UNREACHABLE
+                    if (i < node->entry_list_.size() - 1) {
+                        print_token_format_mode(node->token_separator_list_[i]);
+                        space();
+                    }
                 }
-                // Other entry type UNREACHABLE
-                if (i < node->token_separator_list_.size()) {
-                    print_token_format_mode(node->token_separator_list_[i]);
-                }
+            }else{
                 breakline_format_mode();
+                inc_indent();
+                for (size_t i = 0; i < node->entry_list_.size(); ++i) {
+                    auto       entry      = node->entry_list_[i].get();
+                    const auto entry_type = entry->GetType();
+                    indent();
+                    if (entry_type == TableEntryType::Field) {
+                        auto field_entry = static_cast<const FieldEntry*>(entry);
+                        print_token_format_mode(field_entry->field_);
+                        space();
+                        print_token_format_mode(field_entry->token_equals_);
+                        space();
+                        print_expr_format_mode(field_entry->value_.get());
+                    }
+                    else if (entry_type == TableEntryType::Index) {
+                        auto index_entry = static_cast<const IndexEntry*>(entry);
+                        print_token_format_mode(index_entry->token_open_bracket_);
+                        print_expr_format_mode(index_entry->index_.get());
+                        print_token_format_mode(index_entry->token_close_bracket_);
+                        space();
+                        print_token_format_mode(index_entry->token_equals_);
+                        space();
+                        print_expr_format_mode(index_entry->value_.get());
+                    }
+                    else if (entry_type == TableEntryType::Value) {
+                        auto value_entry = static_cast<const ValueEntry*>(entry);
+                        print_expr_format_mode(value_entry->value_.get());
+                    }
+                    // Other entry type UNREACHABLE
+                    if (i < node->entry_list_.size() - 1) {
+                        print_token_format_mode(node->token_separator_list_[i]);
+                    }
+                    breakline_format_mode();
+                }
+                dec_indent();
+                indent();
             }
-            dec_indent();
-            indent();
         }
         print_token_format_mode(node->token_close_brace_);
         return;
@@ -727,18 +722,20 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
 
     if(is_block_stat(stat->GetType())){
         if(!is_block_start_){
-            out_ << "\n";
+            out_.put('\n');
         }else{
             is_block_start_ = false;
         }
     }else{
         if(last_is_block_stat_){
             if(!is_block_start_){
-                out_ << "\n";
+                out_.put('\n');
             }else{
                 is_block_start_ = false;
             }
             last_is_block_stat_ = false;
+        }else{
+            is_block_start_ = false;
         }
     }
 
@@ -1007,7 +1004,7 @@ void AstPrinter::PrintAst(const AstNode* ast)
     print_stat(ast);
 }
 
-void AstPrinter::PrintAst(const AstNode* ast, const std::vector<Token>& comment_tokens)
+void AstPrinter::PrintAst(const AstNode* ast, const std::vector<CommentToken>& comment_tokens)
 {
     comment_tokens_ = &comment_tokens;
     print_stat_format_mode(ast);
@@ -1019,7 +1016,7 @@ void PrintAst(const AstNode* ast, std::ostream& out)
     printer.PrintAst(ast);
 }
 
-void PrintAst(const AstNode* ast, const std::vector<Token>& comment_tokens, std::ostream& out)
+void PrintAst(const AstNode* ast, const std::vector<CommentToken>& comment_tokens, std::ostream& out)
 {
     AstPrinter printer(out);
     printer.PrintAst(ast, comment_tokens);

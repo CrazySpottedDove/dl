@@ -1,5 +1,5 @@
 #include "dl/tokenizer.h"
-#include "dl/cli.h"
+#include "dl/macros.h"
 #include "dl/token.h"
 #include <cstdarg>
 #include <cstdio>
@@ -26,7 +26,9 @@ bool Tokenizer::finished() const noexcept
 
 void Tokenizer::addToken(const TokenType type, const size_t start_idx) noexcept
 {
-    tokens_.emplace_back(Token{type, text_.substr(start_idx, position_ - start_idx), line_});
+    // tokens_.emplace_back(Token{type, text_.substr(start_idx, position_ - start_idx), line_});
+    tokens_.emplace_back(
+        Token{type, std::string_view{text_.data() + start_idx, position_ - start_idx}, line_});
 }
 
 int Tokenizer::getLongStringDelimiterLength() noexcept
@@ -73,12 +75,19 @@ void Tokenizer::getLongString(const int delimeter_length)
     }
 }
 
-Tokenizer::Tokenizer(const std::string&& text, const int work_mode)
-    : text_(text)
+Tokenizer::Tokenizer(std::string&& text, const std::string& file_name, const int work_mode)
+    : file_name_(file_name)
+    , text_(std::move(text))
     , position_(0)
     , tokens_()
-    , length_(text.length())
+    , length_(text_.length())
 {
+    tokens_.reserve(length_ * 0.25);   // 经验值，预分配四分之一长度的 token 空间
+    if (length_ >= 3 && static_cast<unsigned char>(text_[0]) == 0xEF &&
+        static_cast<unsigned char>(text_[1]) == 0xBB &&
+        static_cast<unsigned char>(text_[2]) == 0xBF) {
+        position_ = 3;   // 从第4字节开始 tokenize
+    }
     switch (work_mode) {
     case WORK_MODE_FORMAT: tokenize_format(); break;
     case WORK_MODE_COMPILE: tokenize_compile(); break;
@@ -157,13 +166,14 @@ void Tokenizer::tokenize_compile()
 
         if (position_ > token_start) {
             // addToken(TokenType::Comment, token_start);
-            token_start = position_;
+            // token_start = position_;
             continue;
         }
 
         if (finished()) {
             return;
         }
+
         const char c1 = get();
 
         if (c1 == '\'' || c1 == '\"') {
@@ -203,6 +213,13 @@ void Tokenizer::tokenize_compile()
             else {
                 addToken(TokenType::Identifier, token_start);
             }
+            continue;
+        }
+
+        if(c1 == '.' && peek() == '.' && peek(1) == '.'){
+            position_ += 2;
+            // 表示变参符号 "..."，作为特殊标识符处理
+            addToken(TokenType::Identifier, token_start);
             continue;
         }
 
@@ -255,9 +272,6 @@ void Tokenizer::tokenize_compile()
         if (c1 == '.') {
             if (peek() == '.') {
                 get();
-                if (peek() == '.') {
-                    get();
-                }
             }
             addToken(TokenType::Symbol, token_start);
             continue;
@@ -288,7 +302,6 @@ void Tokenizer::tokenize_compile()
 void Tokenizer::tokenize_format()
 {
     size_t token_start = 0;
-
     while (true) {
         // 跳过 WhiteSpace
         while (true) {
@@ -356,7 +369,7 @@ void Tokenizer::tokenize_format()
                     while (std::getline(iss, line)) {
                         if (line != "") {
                             comment_tokens_.emplace_back(
-                                Token{TokenType::Comment, "-- " + line, divided_comment_line});
+                                CommentToken{"-- " + line, divided_comment_line});
                             ++divided_comment_line;
                         }
                     }
@@ -382,9 +395,8 @@ void Tokenizer::tokenize_format()
         }
 
         if (position_ > token_start) {
-            comment_tokens_.emplace_back(Token{TokenType::Comment,
-                                               text_.substr(token_start, position_ - token_start),
-                                               comment_line});
+            comment_tokens_.emplace_back(
+                CommentToken{text_.substr(token_start, position_ - token_start), comment_line});
             token_start = position_;
             continue;
         }
@@ -431,6 +443,13 @@ void Tokenizer::tokenize_format()
             else {
                 addToken(TokenType::Identifier, token_start);
             }
+            continue;
+        }
+
+        if (c1 == '.' && peek() == '.' && peek(1) == '.') {
+            position_ += 2;
+            // 表示变参符号 "..."，作为特殊标识符处理
+            addToken(TokenType::Identifier, token_start);
             continue;
         }
 
@@ -516,7 +535,7 @@ void Tokenizer::tokenize_format()
 void Tokenizer::Print() const noexcept
 {
     for (const auto& token : tokens_) {
-        printf("Type: %-12s, Text: %s\n",
+        printf("Type: %-12s, Text: '%s'\n",
                std::string(magic_enum::enum_name(token.type_)).c_str(),
                std::string(token.source_).c_str());
     }
@@ -524,7 +543,7 @@ void Tokenizer::Print() const noexcept
 
 void Tokenizer::error(const char* fmt, ...) const
 {
-    SPDLOG_ERROR("Tokenizer Error at Line {}", line_);
+    SPDLOG_ERROR("Tokenizer Error at {}:{}", file_name_, line_);
     char    buf[512];
     va_list args;
     va_start(args, fmt);
