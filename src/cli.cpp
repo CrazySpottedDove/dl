@@ -3,7 +3,7 @@
 
 using namespace dl;
 
-CliArgs cli::parse(int argc, char* argv[]){
+CliArgs cli::Parse(int argc, char* argv[]){
     CliArgs args;
 
     for(int i = 1; i < argc; ++i){
@@ -22,16 +22,22 @@ CliArgs cli::parse(int argc, char* argv[]){
             if(i + 1 < argc){
                 args.build_dir = argv[++i];
             }
+        }else if(arg == "--format"){
+            if(i + 1 < argc){
+                args.format_file = argv[++i];
+                args.work_mode = WORK_MODE_FORMAT;
+            }
         }
     }
     return args;
 }
 
-void cli::print_help(){
-    printf("Usage: dl [options]\n"
-           "Options:\n"
-           "  -h, --help            Show this help message\n"
-           "  -v, --version         Show version information\n"
-           "  --project-dir <path>  Specify the project directory\n"
-           "  --build-dir <path>    Specify the build directory\n");
+void cli::PrintHelp(){
+    std::printf("Usage: dl [options]\n");
+    std::printf("Options:\n");
+    std::printf("  -h, --help            Show this help message and exit\n");
+    std::printf("  -v, --version         Show version information and exit\n");
+    std::printf("  --project-dir <path>  Specify the project directory\n");
+    std::printf("  --build-dir <path>    Specify the build directory\n");
+    std::printf("  --format <file>       Format the specified file\n");
 }

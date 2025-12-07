@@ -2,3 +2,5 @@ build/
 tmp/
 .cache/
 logs/
+.gdb_history
+output/

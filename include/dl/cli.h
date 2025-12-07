@@ -1,5 +1,6 @@
 #pragma once
-
+#define WORK_MODE_COMPILE 0
+#define WORK_MODE_FORMAT 1
 #include <string>
 namespace dl {
     struct CliArgs{
@@ -7,10 +8,12 @@ namespace dl {
         std::string build_dir;
         bool show_help = false;
         bool show_version = false;
+        int work_mode = WORK_MODE_COMPILE;
+        std::string format_file;
     };
 
     namespace cli{
-        CliArgs parse(int argc, char* argv[]);
-        void print_help();
+        CliArgs Parse(int argc, char* argv[]);
+        void PrintHelp();
     }
 }

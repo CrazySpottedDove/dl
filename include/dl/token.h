@@ -23,6 +23,8 @@ struct Token
     TokenType type_;
     // Token 内容
     std::string source_;
+    // Token 所在行号
+    std::size_t line_;
 };
 
 inline bool is_white_char(const char c)
@@ -71,22 +73,22 @@ inline bool is_keyword(const std::string_view str){
     return key_words.find(str) != key_words.end();
 }
 
-inline bool is_block_follow_keyword(const std::string& str){
-    static const std::unordered_set<std::string> block_follow_keywords = {
+inline bool is_block_follow_keyword(const std::string_view str){
+    static const std::unordered_set<std::string_view> block_follow_keywords = {
         "else","elseif","end","until"
     };
     return block_follow_keywords.find(str) != block_follow_keywords.end();
 }
 
-inline bool is_unop(const std::string& str){
-    static const std::unordered_set<std::string> unops = {
+inline bool is_unop_op(const std::string_view str){
+    static const std::unordered_set<std::string_view> unops = {
         "not","-","#"
     };
     return unops.find(str) != unops.end();
 }
 
-inline bool is_binop(const std::string& str){
-    static const std::unordered_set<std::string> binops = {
+inline bool is_binop_op(const std::string_view str){
+    static const std::unordered_set<std::string_view> binops = {
         "+","-","*","/","^","%","..","==","~=","<=",">=","<",">","and","or"
     };
     return binops.find(str) != binops.end();
