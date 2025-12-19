@@ -10,3 +10,5 @@ build-debug/
 build-win/
 bin/
 node_modules/
+.dlfmt_cache.json
+task.json

@@ -68,7 +68,21 @@ function activate(context) {
         }
     });
 
-    context.subscriptions.push(output, formatFileCmd, formatDirCmd, compressFileCmd, compressDirCmd);
+    const runJsonTaskCmd = vscode.commands.registerCommand('dlfmt.runJsonTask', async (uri) => {
+        try {
+            if (!uri || !uri.fsPath.endsWith('.json')) {
+                vscode.window.showErrorMessage('请选择一个 JSON 文件');
+                return;
+            }
+            const exe = await resolveDlfmtExecutable(context, output);
+            await runDlfmt(exe, ['--json-task', uri.fsPath], path.dirname(uri.fsPath), output);
+            vscode.window.showInformationMessage(`dlfmt: 已执行 JSON 任务 ${path.basename(uri.fsPath)}`);
+        } catch (err) {
+            reportError(err, output);
+        }
+    });
+
+    context.subscriptions.push(output, formatFileCmd, formatDirCmd, compressFileCmd, compressDirCmd, runJsonTaskCmd);
 
     // 格式化器，复用主输出通道
     const formatter = vscode.languages.registerDocumentFormattingEditProvider('lua', {

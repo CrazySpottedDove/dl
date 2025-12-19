@@ -588,10 +588,9 @@ void AstPrinter::print_expr_format_mode(const AstNode* expr)
             }
         }
         print_token_format_mode(node->token_close_paren_);
-        breakline_format_mode();
-        inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(node->token_end_);
         return;
@@ -699,6 +698,71 @@ bool AstPrinter::is_block_stat(AstNodeType type)
     return block_stats_.find(type) != block_stats_.end();
 }
 
+void AstPrinter::set_format_stat_group(AstPrinter::FormatStatGroup group) noexcept
+{
+    last_format_stat_group_ = group;
+}
+
+AstPrinter::FormatStatGroup AstPrinter::get_format_stat_group(const AstNode* stat) const noexcept
+{
+    switch (stat->GetType()) {
+    case AstNodeType::BreakStat: return FormatStatGroup::Break;
+    case AstNodeType::ReturnStat: return FormatStatGroup::Return;
+    case AstNodeType::LocalVarStat: return FormatStatGroup::LocalDecl;
+    case AstNodeType::LocalFunctionStat:
+    case AstNodeType::FunctionStat:
+    case AstNodeType::RepeatStat:
+    case AstNodeType::GenericForStat:
+    case AstNodeType::NumericForStat:
+    case AstNodeType::WhileStat:
+    case AstNodeType::DoStat:
+    case AstNodeType::IfStat: return FormatStatGroup::Block;
+    case AstNodeType::CallExprStat: return FormatStatGroup::Call;
+    case AstNodeType::AssignmentStat: return FormatStatGroup::Assign;
+    case AstNodeType::GotoStat: return FormatStatGroup::Goto;
+    case AstNodeType::LabelStat: return FormatStatGroup::Label;
+    default: return FormatStatGroup::None;
+    }
+}
+
+// void AstPrinter::set_format_stat_group(const AstNode* stat) noexcept
+// {
+//     switch (stat->GetType()) {
+//     case AstNodeType::BreakStat: set_format_stat_group(FormatStatGroup::Break); break;
+//     case AstNodeType::ReturnStat: set_format_stat_group(FormatStatGroup::Return); break;
+//     case AstNodeType::LocalVarStat: set_format_stat_group(FormatStatGroup::LocalDecl); break;
+//     case AstNodeType::LocalFunctionStat:
+//     case AstNodeType::FunctionStat:
+//     case AstNodeType::RepeatStat:
+//     case AstNodeType::GenericForStat:
+//     case AstNodeType::NumericForStat:
+//     case AstNodeType::WhileStat:
+//     case AstNodeType::DoStat:
+//     case AstNodeType::IfStat:
+//     }
+// }
+
+void AstPrinter::do_format_stat_group_rules(const AstNode* stat) noexcept
+{
+    // 空白组不处理，即某个块的开始
+    if (last_format_stat_group_ == FormatStatGroup::None) {
+        return;
+    }
+    auto stat_group = get_format_stat_group(stat);
+
+    // 块级语句之间也仍然要换行
+    if(stat_group == FormatStatGroup::Block){
+        out_.put('\n');
+        return;
+    }
+
+    // 如果组不同，则换行
+    if (stat_group != last_format_stat_group_) {
+        // 不同组，插入空行
+        out_.put('\n');
+    }
+}
+
 void AstPrinter::print_stat_format_mode(const AstNode* stat)
 {
     if (stat->GetType() == AstNodeType::StatList) {
@@ -709,29 +773,32 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
         return;
     }
 
-    if (is_block_stat(stat->GetType())) {
-        if (!is_block_start_) {
-            out_.put('\n');
-        }
-        else {
-            is_block_start_ = false;
-        }
-    }
-    else {
-        if (last_is_block_stat_) {
-            if (!is_block_start_) {
-                out_.put('\n');
-            }
-            else {
-                is_block_start_ = false;
-            }
-            last_is_block_stat_ = false;
-        }
-        else {
-            is_block_start_ = false;
-        }
-    }
+    do_format_stat_group_rules(stat);
 
+    // if (is_block_stat(stat->GetType())) {
+    //     if (!is_block_start_) {
+    //         out_.put('\n');
+    //     }
+    //     else {
+    //         is_block_start_ = false;
+    //     }
+    // }
+    // else {
+    //     if (last_is_block_stat_) {
+    //         if (!is_block_start_) {
+    //             out_.put('\n');
+    //         }
+    //         else {
+    //             is_block_start_ = false;
+    //         }
+    //         last_is_block_stat_ = false;
+    //     }
+    //     else {
+    //         is_block_start_ = false;
+    //     }
+    // }
+
+    // Statement 前统一 indent()
     indent();
 
     if (stat->GetType() == AstNodeType::BreakStat) {
@@ -790,10 +857,12 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
             }
         }
         print_token_format_mode(function_node->token_close_paren_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(function_node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(function_node->token_end_);
     }
@@ -816,20 +885,24 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
             }
         }
         print_token_format_mode(node->token_close_paren_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(node->token_end_);
     }
     else if (stat->GetType() == AstNodeType::RepeatStat) {
         auto node = static_cast<const RepeatStat*>(stat);
         print_token_format_mode(node->token_repeat_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(node->token_until_);
         space();
@@ -858,10 +931,12 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
         }
         space();
         print_token_format_mode(node->token_do_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(node->token_end_);
     }
@@ -888,10 +963,12 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
         }
         space();
         print_token_format_mode(node->token_do_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(node->token_end_);
     }
@@ -902,20 +979,24 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
         print_expr_format_mode(node->condition_.get());
         space();
         print_token_format_mode(node->token_do_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(node->token_end_);
     }
     else if (stat->GetType() == AstNodeType::DoStat) {
         auto node = static_cast<const DoStat*>(stat);
         print_token_format_mode(node->token_do_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         indent();
         print_token_format_mode(node->token_end_);
     }
@@ -926,10 +1007,12 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
         print_expr_format_mode(node->condition_.get());
         space();
         print_token_format_mode(node->token_then_);
-        breakline_format_mode();
-        inc_indent();
+        // breakline_format_mode();
+        // inc_indent();
+        enter_group_format_mode();
         print_stat_format_mode(node->body_.get());
-        dec_indent();
+        // dec_indent();
+        exit_group_format_mode();
         for (size_t i = 0; i < node->else_clause_list_.size(); ++i) {
             indent();
             auto clause = node->else_clause_list_[i].get();
@@ -940,10 +1023,13 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
                 space();
                 print_token_format_mode(clause->GetTokenThen());
             }
-            breakline_format_mode();
-            inc_indent();
+            // breakline_format_mode();
+            // set_format_stat_group(FormatStatGroup::None);
+            // inc_indent();
+            enter_group_format_mode();
             print_stat_format_mode(clause->body_.get());
-            dec_indent();
+            // dec_indent();
+            exit_group_format_mode();
         }
         indent();
         print_token_format_mode(node->token_end_);
@@ -985,10 +1071,12 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
         print_token_format_mode(node->token_label_end_);
     }
 
+    // Statement 后统一 breakline()
     breakline_format_mode();
-    if (is_block_stat(stat->GetType())) {
-        last_is_block_stat_ = true;
-    }
+    // if (is_block_stat(stat->GetType())) {
+    //     last_is_block_stat_ = true;
+    // }
+    set_format_stat_group(get_format_stat_group(stat));
     return;
 }
 

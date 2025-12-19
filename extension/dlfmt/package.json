@@ -3,7 +3,7 @@
 	"publisher": "CrazySpottedDove",
 	"displayName": "dlfmt",
 	"description": "a blazing fast lua formatter, only support windows & linux",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"engines": {
 		"vscode": "^1.106.0"
 	},
@@ -28,6 +28,10 @@
 			{
 				"command": "dlfmt.compressDirectory",
 				"title": "dlfmt: 压缩文件夹"
+			},
+			{
+				"command": "dlfmt.runJsonTask",
+				"title": "dlfmt: 运行 JSON 任务"
 			}
 		],
 		"menus": {
@@ -46,6 +50,10 @@
 				},
 				{
 					"command": "dlfmt.compressDirectory",
+					"when": "true"
+				},
+				{
+					"command": "dlfmt.runJsonTask",
 					"when": "true"
 				}
 			],
@@ -69,6 +77,11 @@
 					"command": "dlfmt.compressDirectory",
 					"group": "navigation",
 					"when": "resourceScheme == file && explorerResourceIsFolder == true"
+				},
+				{
+					"command": "dlfmt.runJsonTask",
+					"group": "navigation",
+					"when": "resourceScheme == file"
 				}
 			]
 		},
@@ -115,7 +128,8 @@
 		"onCommand:dlfmt.formatFile",
 		"onCommand:dlfmt.formatDirectory",
 		"onCommand:dlfmt.compressFile",
-		"onCommand:dlfmt.compressDirectory"
+		"onCommand:dlfmt.compressDirectory",
+        "onCommand:dlfmt.runJsonTask"
 	],
 	"devDependencies": {
 		"@types/vscode": "^1.106.0",

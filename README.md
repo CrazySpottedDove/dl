@@ -15,6 +15,7 @@ Options:
   --format-directory <dir> Format all files in the specified directory recursively
   --compress-file <file>   Compress the specified file
   --compress-directory <dir> Compress all files in the specified directory recursively
+  --json-task <file>     Process tasks defined in the specified JSON file
 ```
 
 以下是 luaminify 的代码片段经过 dlfmt 格式化后的示例：
@@ -71,3 +72,27 @@ end
 ```
 
 压缩不处理变量名压缩。
+
+## Json Task
+
+可以在 json 文件中定义整个项目的格式化任务，以让 dlfmt 高效进行格式化。
+
+示例的 `task.json` 文件：
+
+```json
+{
+	"tasks": [
+		{
+			"type": "format",
+			"directory": "tmp/src-dlua",
+			"exclude": ["tmp/src-dlua/_assets"]
+		},
+		{
+			"type": "compress",
+			"directory": "tmp/src-dlua/_assets",
+            "exclude": ["tmp/src-dlua/_assets/kr1-desktop"]
+		}
+	]
+}
+```
+
