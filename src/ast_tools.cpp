@@ -244,14 +244,17 @@ void AstPrinter::print_stat(const AstNode* stat)
     if (stat->GetType() == AstNodeType::ReturnStat) {
         auto node = static_cast<const ReturnStat*>(stat);
         print_token(node->token_return_);
-        space();
-        for (size_t i = 0; i < node->expr_list_.size(); ++i) {
-            print_expr(node->expr_list_[i].get());
-            if (i < node->token_comma_list_.size()) {
-                print_token(node->token_comma_list_[i]);
-                space();
+        if(!node->expr_list_.empty()){
+            space();
+            for (size_t i = 0; i < node->expr_list_.size(); ++i) {
+                print_expr(node->expr_list_[i].get());
+                if (i < node->token_comma_list_.size()) {
+                    print_token(node->token_comma_list_[i]);
+                    space();
+                }
             }
         }
+
         breakline();
         return;
     }
@@ -775,29 +778,6 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
 
     do_format_stat_group_rules(stat);
 
-    // if (is_block_stat(stat->GetType())) {
-    //     if (!is_block_start_) {
-    //         out_.put('\n');
-    //     }
-    //     else {
-    //         is_block_start_ = false;
-    //     }
-    // }
-    // else {
-    //     if (last_is_block_stat_) {
-    //         if (!is_block_start_) {
-    //             out_.put('\n');
-    //         }
-    //         else {
-    //             is_block_start_ = false;
-    //         }
-    //         last_is_block_stat_ = false;
-    //     }
-    //     else {
-    //         is_block_start_ = false;
-    //     }
-    // }
-
     // Statement 前统一 indent()
     indent();
 
@@ -807,12 +787,14 @@ void AstPrinter::print_stat_format_mode(const AstNode* stat)
     else if (stat->GetType() == AstNodeType::ReturnStat) {
         auto node = static_cast<const ReturnStat*>(stat);
         print_token_format_mode(node->token_return_);
-        space();
-        for (size_t i = 0; i < node->expr_list_.size(); ++i) {
-            print_expr_format_mode(node->expr_list_[i].get());
-            if (i < node->token_comma_list_.size()) {
-                print_token_format_mode(node->token_comma_list_[i]);
-                space();
+        if(!node->expr_list_.empty()){
+            space();
+            for (size_t i = 0; i < node->expr_list_.size(); ++i) {
+                print_expr_format_mode(node->expr_list_[i].get());
+                if (i < node->token_comma_list_.size()) {
+                    print_token_format_mode(node->token_comma_list_[i]);
+                    space();
+                }
             }
         }
     }
