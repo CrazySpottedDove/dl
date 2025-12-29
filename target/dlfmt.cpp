@@ -51,7 +51,7 @@ static void FormatFile(const std::string& format_file)
     file.close();
 
     // tokenize
-    Tokenizer tokenizer(std::move(content), format_file, WORK_MODE_FORMAT);
+    Tokenizer tokenizer(std::move(content), format_file, Tokenizer::WorkMode::format);
     // parse
     Parser parser(tokenizer.getTokens(), format_file);
 
@@ -117,7 +117,7 @@ static void compressFile(const std::string& format_file)
     file.close();
 
     // tokenize
-    Tokenizer tokenizer(std::move(content), format_file, WORK_MODE_COMPILE);
+    Tokenizer tokenizer(std::move(content), format_file, Tokenizer::WorkMode::compress);
     // parse
     Parser parser(tokenizer.getTokens(), format_file);
 

@@ -1,26 +1,78 @@
 #pragma once
 #include "dl/token.h"
-#include <vector>
+#include <cstdint>
 #include <string>
+#include <vector>
 namespace dl {
-#define DL_TOKENIZER_EOF '\0'
-#define INVALID_LONG_STRING_DELIMITER_LENGTH -1
+constexpr char DL_TOKENIZER_EOF                     = '\0';
+constexpr int  INVALID_LONG_STRING_DELIMITER_LENGTH = -1;
 class Tokenizer
 {
 public:
-    Tokenizer(std::string&& text, const std::string& file_name, const int work_mode);
-
+    /**
+     * @brief 管理 Tokenizer 的工作模式
+     *
+     */
+    enum class WorkMode : uint8_t
+    {
+        compress,
+        format,
+    };
+    Tokenizer(std::string&& text, const std::string& file_name, WorkMode work_mode);
+#ifndef NDEBUG
+    /**
+     * @brief 打印所有的 token
+     *
+     */
     void Print() const noexcept;
-    std::vector<Token>& getTokens() noexcept { return tokens_; }
+#endif
+    std::vector<Token>&        getTokens() noexcept { return tokens_; }
     std::vector<CommentToken>& getCommentTokens() noexcept { return comment_tokens_; }
+
 private:
     // 查看当前位置往前看第offset个字符
     char peek(size_t offset = 0) const noexcept;
 
+    /**
+     * @brief Look at the current character without any safety checks
+     *
+     * @return char
+     */
+    char peek_trust_me() const noexcept;
+
+    /**
+     * @brief Advance the current position by one character
+     *
+     */
+    void step() noexcept;
+
+    /**
+     * @brief Advance the current position by step_length characters
+     *
+     * @param step_length
+     */
+    void step(size_t step_length) noexcept;
+
     // 获取当前字符并往前走一位
     char get() noexcept;
 
+    /**
+     * @brief Advance the current position until a newline character is encountered
+     *
+     */
+    void step_till_newline() noexcept;
+
+    /**
+     * @brief Get the current character without any safety checks and advance the position
+     *
+     * @return char
+     */
+    char get_trust_me() noexcept;
+
+    void tokenize();
     void tokenize_compile();
+    void tokenize_compress_mode_core();
+    void tokenize_format_mode_core();
     void tokenize_format();
 
     void addToken(const TokenType type, const size_t start_idx) noexcept;
@@ -45,14 +97,14 @@ private:
     void getLongString(const int delimiter_length);
 
     // 接收类似于 printf 接收的参数
-    void error( const char* fmt, ... ) const;
+    void error(const char* fmt, ...) const;
 
-    std::string file_name_;
-    std::string        text_;
-    size_t             position_ = 0;
-    std::vector<Token> tokens_;
+    std::string               file_name_;
+    std::string               text_;
+    size_t                    position_ = 0;
+    std::vector<Token>        tokens_;
     std::vector<CommentToken> comment_tokens_;
-    size_t             length_ = 0;
-    size_t line_ = 1;
+    size_t                    length_ = 0;
+    size_t                    line_   = 1;
 };
 }   // namespace dl

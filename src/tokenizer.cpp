@@ -14,9 +14,39 @@ char Tokenizer::peek(size_t offset) const noexcept
     return offset < length_ ? text_[offset] : DL_TOKENIZER_EOF;
 }
 
+char Tokenizer::peek_trust_me() const noexcept
+{
+    return text_[position_];
+}
+
+void Tokenizer::step() noexcept
+{
+    ++position_;
+}
+
+void Tokenizer::step(size_t step_length) noexcept
+{
+    position_ += step_length;
+}
+
 char Tokenizer::get() noexcept
 {
     return position_ < length_ ? text_[position_++] : DL_TOKENIZER_EOF;
+}
+
+char Tokenizer::get_trust_me() noexcept
+{
+    return text_[position_++];
+}
+
+void Tokenizer::step_till_newline() noexcept
+{
+    while (!finished()) {
+        if (get_trust_me() == '\n') {
+            ++line_;
+            break;
+        }
+    }
 }
 
 bool Tokenizer::finished() const noexcept
@@ -26,7 +56,6 @@ bool Tokenizer::finished() const noexcept
 
 void Tokenizer::addToken(const TokenType type, const size_t start_idx) noexcept
 {
-    // tokens_.emplace_back(Token{type, text_.substr(start_idx, position_ - start_idx), line_});
     tokens_.emplace_back(
         Token{type, std::string_view{text_.data() + start_idx, position_ - start_idx}, line_});
 }
@@ -75,7 +104,7 @@ void Tokenizer::getLongString(const int delimeter_length)
     }
 }
 
-Tokenizer::Tokenizer(std::string&& text, const std::string& file_name, const int work_mode)
+Tokenizer::Tokenizer(std::string&& text, const std::string& file_name, WorkMode work_mode)
     : file_name_(file_name)
     , text_(std::move(text))
     , position_(0)
@@ -89,8 +118,8 @@ Tokenizer::Tokenizer(std::string&& text, const std::string& file_name, const int
         position_ = 3;   // 从第4字节开始 tokenize
     }
     switch (work_mode) {
-    case WORK_MODE_FORMAT: tokenize_format(); break;
-    case WORK_MODE_COMPILE: tokenize_compile(); break;
+    case WorkMode::compress: tokenize_format(); break;
+    case WorkMode::format: tokenize_compress_mode_core(); break;
     default: break;
     }
 }
@@ -181,16 +210,16 @@ void Tokenizer::tokenize_compile()
                     error("String not closed");
                 }
                 const char c2 = get();
-                if(c2 == '\n'){
+                if (c2 == '\n') {
                     error("String killed by '\\n'");
                 }
-                if(c2 == '\\'){
-                    if(finished()){
+                if (c2 == '\\') {
+                    if (finished()) {
                         error("String not closed");
                     }
                     // 通过转义忽略下一个字符的特殊含义
                     const char c3 = get();
-                    if(c3 == '\n'){
+                    if (c3 == '\n') {
                         ++line_;
                     }
                     continue;
@@ -534,7 +563,7 @@ void Tokenizer::tokenize_format()
         error("Bad Symbol %c in source code", c1);
     }
 }
-
+#ifndef NDEBUG
 void Tokenizer::Print() const noexcept
 {
     for (const auto& token : tokens_) {
@@ -543,7 +572,7 @@ void Tokenizer::Print() const noexcept
                std::string(token.source_).c_str());
     }
 }
-
+#endif
 void Tokenizer::error(const char* fmt, ...) const
 {
     SPDLOG_ERROR("Tokenizer Error at {}:{}", file_name_, line_);
@@ -564,4 +593,268 @@ void Tokenizer::error(const char* fmt, ...) const
     }
 
     throw std::runtime_error("Tokenizer Error");
+}
+
+void Tokenizer::tokenize_compress_mode_core()
+{
+    size_t token_start = 0;
+    while (true) {
+        // Skip White Space
+        while (true) {
+            // return when finished
+            if (finished()) {
+                return;
+            }
+
+            // not finished yet, thus we can use peek_trust_me
+            const char c = peek_trust_me();
+            if (c == ' ' || c == '\t' || c == '\r') {
+                step();
+            }
+            else if (c == '\n') {
+                step();
+                ++line_;
+            }
+            else {
+                break;
+            }
+        }
+
+        // Not finished yet
+        //  update token_start
+        token_start = position_;
+
+        const char c = peek_trust_me();
+
+        // Parse comments and simply drop them
+        if (c == '-' && peek(1) == '-') {
+            step(2);
+            // Long Comment maybe
+            if (peek() == '[') {
+                step();
+                const int delimiter_length = getLongStringDelimiterLength();
+                if (delimiter_length == INVALID_LONG_STRING_DELIMITER_LENGTH) {
+                    // Normal Comment
+                    step_till_newline();
+                }
+                else {
+                    // Long Comment
+                    getLongString(delimiter_length);
+                }
+            }
+            else {
+                // Normal Comment
+                step_till_newline();
+            }
+        }
+
+        // One commit processed, goto next turn
+        if (position_ > token_start) {
+            continue;
+        }
+
+        if (finished()) {
+            return;
+        }
+
+        // not finished yet
+        const char c1 = get_trust_me();
+
+        // String Literal (\n not allowed)
+        if (c1 == '\'' || c1 == '\"') {
+            while (true) {
+                if (finished()) {
+                    error("String literal not closed");
+                }
+
+                const char c2 = get_trust_me();
+                if (c2 == '\n') {
+                    error("String killed by '\\n'");
+                }
+                // escape protect the string literal from getting killed by \n
+                if (c2 == '\\') {
+                    if (finished()) {
+                        error("String literal not closed");
+                    }
+                    if (get_trust_me() == '\n') {
+                        ++line_;
+                    }
+                    continue;
+                }
+                if (c2 == c1) {
+                    // string closed
+                    break;
+                }
+            }
+            addToken(TokenType::String, token_start);
+            continue;
+        }
+
+        // Identifier or Keyword
+        if (is_identifier_start_char(c1)) {
+            while (is_identifier_char(peek())) {
+                step();
+            }
+            if (is_keyword(text_.substr(token_start, position_ - token_start))) {
+                addToken(TokenType::Keyword, token_start);
+            }
+            else {
+                addToken(TokenType::Identifier, token_start);
+            }
+            continue;
+        }
+
+        // Variadic symbol "..."
+        if (c1 == '.' && peek() == '.' && peek(1) == '.') {
+            step(2);
+            // Variadic symbol "..." , treat as special identifier
+            addToken(TokenType::Identifier, token_start);
+            continue;
+        }
+
+        // Number
+        if(is_digit_char(c1)){
+            // hex
+            if (c1 == '0' && (peek() == 'x')) {
+                step();
+                while (is_hex_digit_char(peek())) {
+                    step();
+                }
+                addToken(TokenType::Number, token_start);
+                continue;
+            }
+            // decimals
+            else {
+                while (is_digit_char(peek())) {
+                    step();
+                }
+                if (finished()) {
+                    addToken(TokenType::Number, token_start);
+                    continue;
+                }
+                if (peek_trust_me() == '.') {
+                    step();
+                    while (is_digit_char(peek())) {
+                        step();
+                    }
+                }
+
+                if(finished()){
+                    addToken(TokenType::Number, token_start);
+                    continue;
+                }
+
+                const char e_char = peek_trust_me();
+                if(e_char == 'e' || e_char == 'E'){
+                    step();
+                    if(finished()){
+                        error("exponent part incomplete in number literal");
+                    }
+                    const char sign_char = peek_trust_me();
+                    if(sign_char == '-' || sign_char == '+'){
+                        step();
+                    }
+                    if(finished()){
+                        error("exponent part incomplete in number literal");
+                    }
+                    const char digit_char = peek_trust_me();
+                    if(!is_digit_char(digit_char)){
+                        error("exponent part incomplete in number literal");
+                    }
+                    step();
+                    while (is_digit_char(peek())) {
+                        step();
+                    }
+                }
+
+                addToken(TokenType::Number, token_start);
+                continue;
+            }
+        }
+
+        // Number starting with '.'
+        if(c1 == '.' && is_digit_char(peek())){
+            step();
+            while (is_digit_char(peek())) {
+                step();
+            }
+            if (finished()) {
+                addToken(TokenType::Number, token_start);
+                continue;
+            }
+
+            const char e_char = peek_trust_me();
+            if (e_char == 'e' || e_char == 'E') {
+                step();
+                if (finished()) {
+                    error("exponent part incomplete in number literal");
+                }
+                const char sign_char = peek_trust_me();
+                if (sign_char == '-' || sign_char == '+') {
+                    step();
+                }
+                if (finished()) {
+                    error("exponent part incomplete in number literal");
+                }
+                const char digit_char = peek_trust_me();
+                if (!is_digit_char(digit_char)) {
+                    error("exponent part incomplete in number literal");
+                }
+                step();
+                while (is_digit_char(peek())) {
+                    step();
+                }
+            }
+
+            addToken(TokenType::Number, token_start);
+            continue;
+        }
+
+        // Long String Maybe
+        if (c1 == '[') {
+            const int delimiter_length = getLongStringDelimiterLength();
+            if (delimiter_length == INVALID_LONG_STRING_DELIMITER_LENGTH) {
+                // Single character '['
+                addToken(TokenType::Symbol, token_start);
+            }
+            else {
+                // Long String
+                getLongString(delimiter_length);
+                addToken(TokenType::String, token_start);
+            }
+            continue;
+        }
+
+        // .. or .
+        if (c1 == '.') {
+            if (peek() == '.') {
+                get_trust_me();
+            }
+            addToken(TokenType::Symbol, token_start);
+            continue;
+        }
+
+        // ==, ~=, <=, >= or single char symbol
+        if (is_equal_symbol_char(c1)) {
+            if (peek() == '=') {
+                ++position_;
+            }
+            addToken(TokenType::Symbol, token_start);
+            continue;
+        }
+
+        // label start/end "::"
+        if (c1 == ':' && peek() == ':') {
+            ++position_;
+            addToken(TokenType::Symbol, token_start);
+            continue;
+        }
+
+        // Other single char symbols
+        if (is_symbol_char(c1)) {
+            addToken(TokenType::Symbol, token_start);
+            continue;
+        }
+        error("Bad Symbol %c in source code", c1);
+    }
 }
