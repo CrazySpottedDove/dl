@@ -14,11 +14,13 @@ enum class AstPrintMode
 template<AstPrintMode mode> class AstPrinter
 {
 public:
-    AstPrinter(std::ostream& out, const std::vector<CommentToken>* comment_tokens = nullptr)
+    AstPrinter(std::ostream& out, size_t buffer_size = 0, const std::vector<CommentToken>* comment_tokens = nullptr)
         : out_(out)
         , comment_tokens_(comment_tokens)
         , indent_(0)
-    {}
+    {
+        buffer_.reserve(buffer_size);
+    }
 
     void PrintAst(const AstNode* ast)
     {
@@ -26,16 +28,14 @@ public:
         if constexpr (mode != AstPrintMode::Compress) {
             // 注意把文件末尾的注释也打印出来
             while (comment_index_ < comment_tokens_->size()) {
-                // out_.put('\n');
                 buffer_.push_back('\n');
                 indent();
-                // out_ << comment_token()->source_;
                 buffer_.append(comment_token()->source_);
                 ++comment_index_;
             }
         }
-        out_ << buffer_;
-        buffer_.clear();
+        out_.write(buffer_.data(),buffer_.size());
+        std::string().swap(buffer_);
     }
 
 private:
@@ -54,7 +54,6 @@ private:
     void print_token(const Token* token)
     {
         if constexpr (mode == AstPrintMode::Compress) {
-            // out_ << token->source_;
             buffer_.append(token->source_);
         }
         else if constexpr (mode == AstPrintMode::Auto) {
@@ -67,9 +66,7 @@ private:
                         // 这个注释的行号小于当前行，且还没有消费，所以应该输出这个注释
                         // print 前 indent 已经做好，所以不用重复 indent()
                         // 我们只可能有短注释
-                        // out_ << comment->source_;
                         buffer_.append(comment->source_);
-                        // out_.put('\n');
                         buffer_.push_back('\n');
                         ++comment_index_;
                         indent();
@@ -80,7 +77,6 @@ private:
                 }
                 line_start_ = false;
             }
-            // out_ << token->source_;
             buffer_.append(token->source_);
         }
     }
@@ -340,7 +336,6 @@ private:
             return;
         }
     }
-    // void                print_expr_format_mode(const AstNode* expr);
     void print_stat(const AstNode* stat)
     {
         if (stat->GetType() == AstNodeType::StatList) {
@@ -631,7 +626,6 @@ private:
         }
         return;
     }
-    // void                print_stat_format_mode(const AstNode* stat);
     void set_format_stat_group(FormatStatGroup group) noexcept
     {
         if constexpr (mode != AstPrintMode::Compress) {
@@ -649,7 +643,6 @@ private:
 
             // 块级语句之间也仍然要换行
             if (stat_group == FormatStatGroup::Block) {
-                // out_.put('\n');
                 buffer_.push_back('\n');
                 return;
             }
@@ -657,7 +650,6 @@ private:
             // 如果组不同，则换行
             if (stat_group != last_format_stat_group_) {
                 // 不同组，插入空行
-                // out_.put('\n');
                 buffer_.push_back('\n');
             }
         }
@@ -687,18 +679,15 @@ private:
     void                indent()
     {
         for (int i = 0; i < indent_; ++i) {
-            // out_.put('\t');
             buffer_.push_back('\t');
         }
     }
     void space() {
-        // out_.put(' ');
         buffer_.push_back(' ');
     }
     void breakline()
     {
         if constexpr (mode == AstPrintMode::Compress) {
-            // out_.put('\n');
             buffer_.push_back('\n');
         }
         else {
@@ -712,26 +701,24 @@ private:
                     ++comment_index_;
                 }
             }
-            // out_.put('\n');
             buffer_.push_back('\n');
             line_start_ = true;
         }
     }
 
-    // void        breakline_format_mode();
     bool is_block_stat(AstNodeType type)
     {
-        static const std::unordered_set<AstNodeType> block_stats_ = {
-            AstNodeType::LocalFunctionStat,
-            AstNodeType::FunctionStat,
-            AstNodeType::RepeatStat,
-            AstNodeType::GenericForStat,
-            AstNodeType::NumericForStat,
-            AstNodeType::WhileStat,
-            AstNodeType::DoStat,
-            AstNodeType::IfStat,
-        };
-        return block_stats_.find(type) != block_stats_.end();
+        switch (type) {
+        case AstNodeType::LocalFunctionStat:
+        case AstNodeType::FunctionStat:
+        case AstNodeType::RepeatStat:
+        case AstNodeType::GenericForStat:
+        case AstNodeType::NumericForStat:
+        case AstNodeType::WhileStat:
+        case AstNodeType::DoStat:
+        case AstNodeType::IfStat: return true;
+        default: return false;
+        }
     }
     void inc_indent()
     {

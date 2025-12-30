@@ -3,9 +3,9 @@
 #include <cstdarg>
 #include <magic_enum/magic_enum.hpp>
 #include <spdlog/spdlog.h>
+#include <sstream>
 #include <string>
 #include <vector>
-#include <sstream>
 namespace dl {
 constexpr char DL_TOKENIZER_EOF                     = '\0';
 constexpr int  INVALID_LONG_STRING_DELIMITER_LENGTH = -1;
@@ -85,7 +85,8 @@ private:
      * @brief Advance the current position until a newline character is encountered
      *
      */
-    void step_till_newline() noexcept{
+    void step_till_newline() noexcept
+    {
         while (!finished()) {
             if (get_trust_me() == '\n') {
                 ++line_;
@@ -99,11 +100,10 @@ private:
      *
      * @return char
      */
-    char get_trust_me() noexcept{
-        return text_[position_++];
-    }
+    char get_trust_me() noexcept { return text_[position_++]; }
 
-    void tokenize(){
+    void tokenize()
+    {
         size_t token_start = 0;
         while (true) {
             // Skip White Space
@@ -159,8 +159,9 @@ private:
                 if (position_ > token_start) {
                     continue;
                 }
-            }else if constexpr (mode == TokenizeMode::Format){
-                const char c = peek_trust_me();
+            }
+            else if constexpr (mode == TokenizeMode::Format) {
+                const char   c                  = peek_trust_me();
                 const size_t comment_start_line = line_;
                 if (c == '-' && peek(1) == '-') {
                     step(2);
@@ -431,19 +432,14 @@ private:
             error("Bad Symbol %c in source code", c1);
         }
     }
-    // void tokenize_compile();
-    // void tokenize_compress_mode_core();
-    // void tokenize_format_mode_core();
-    // void tokenize_format();
 
-    void addToken(const TokenType type, const size_t start_idx) noexcept{
+    void addToken(const TokenType type, const size_t start_idx) noexcept
+    {
         tokens_.emplace_back(
-            Token{type, std::string_view{text_.data() + start_idx, position_ - start_idx}, line_});
+            std::string_view{text_.data() + start_idx, position_ - start_idx}, line_, type);
     }
 
-    bool finished() const noexcept{
-        return position_ >= length_;
-    }
+    bool finished() const noexcept { return position_ >= length_; }
     /**
      * @brief Get the long string delimiter length object
      *
@@ -452,7 +448,8 @@ private:
      * @note 如果是长字符串的开始，消费完长字符串的起始定界符并返回定界符长度
      * @note 如果不是长字符串的开始，返回 INVALID_LONG_STRING_DELIMITER_LENGTH，且不消费任何字符
      */
-    int getLongStringDelimiterLength() noexcept{
+    int getLongStringDelimiterLength() noexcept
+    {
         size_t init_pos = position_;
         while (peek() == '=') {
             ++position_;
@@ -471,7 +468,8 @@ private:
      * @param delimiter_length
      * @note 若读到 EOF，抛出错误
      */
-    void getLongString(const int delimiter_length){
+    void getLongString(const int delimiter_length)
+    {
         while (true) {
             const char c = get();
             if (c == DL_TOKENIZER_EOF) {
@@ -501,7 +499,8 @@ private:
     }
 
     // 接收类似于 printf 接收的参数
-    void error(const char* fmt, ...) const{
+    void error(const char* fmt, ...) const
+    {
         SPDLOG_ERROR("Tokenizer Error at {}:{}", file_name_, line_);
         char    buf[512];
         va_list args;

@@ -17,7 +17,7 @@
 #include <vector>
 using namespace dl;
 
-const std::string VERSION = "0.0.8";
+const std::string VERSION = "0.0.9";
 
 static void PrintHelp()
 {
@@ -46,7 +46,14 @@ static void FormatFile(const std::string& format_file)
         throw std::runtime_error("Failed to open file: " + format_file);
     }
 
-    std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    file.seekg(0, std::ios::end);
+    const auto size = static_cast<size_t>(file.tellg());
+    file.seekg(0);
+    std::string content;
+    if (size) {
+        content.resize(size);
+        file.read(&content[0], static_cast<std::streamsize>(size));
+    }
     file.close();
 
     // tokenize
@@ -59,7 +66,7 @@ static void FormatFile(const std::string& format_file)
     std::ofstream out_file(format_file, std::ios::binary | std::ios::trunc);
 
     // 写入
-    AstPrinter<AstPrintMode::Auto> printer(out_file, &tokenizer.getCommentTokens());
+    AstPrinter<AstPrintMode::Auto> printer(out_file, size, &tokenizer.getCommentTokens());
     printer.PrintAst(parser.GetAstRoot());
     out_file.flush();
     out_file.close();
@@ -114,10 +121,8 @@ static void compressFile(const std::string& format_file)
         throw std::runtime_error("Failed to open file: " + format_file);
     }
 
-    // std::string content((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-    // file.close();
     file.seekg(0, std::ios::end);
-    auto size = static_cast<size_t>(file.tellg());
+    const auto size = static_cast<size_t>(file.tellg());
     file.seekg(0);
     std::string content;
     if (size) {
@@ -136,7 +141,7 @@ static void compressFile(const std::string& format_file)
     std::ofstream out_file(format_file, std::ios::binary | std::ios::trunc);
 
     // 写入
-    AstPrinter<AstPrintMode::Compress> printer(out_file);
+    AstPrinter<AstPrintMode::Compress> printer(out_file, size);
     printer.PrintAst(parser.GetAstRoot());
     out_file.flush();
     out_file.close();
@@ -184,7 +189,6 @@ static void compressDirectory(const std::string& format_directory)
 
 using json         = nlohmann::json;
 using file_cache_t = int64_t;
-
 
 static int64_t FileTimeTypeToTimeT(std::filesystem::file_time_type t)
 {
@@ -278,7 +282,7 @@ static void ProcessJsonTask(const std::string& json_file)
         else if (task["type"] == "format") {
             std::vector<std::filesystem::path> exclude;
             if (task.contains("exclude")) {
-                for (const auto& ex : task["exclude"]){
+                for (const auto& ex : task["exclude"]) {
                     exclude.push_back(std::filesystem::absolute(work_dir / ex.get<std::string>()));
                 }
             }

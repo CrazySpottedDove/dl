@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <cstdio>
 #include <fmt/format.h>
-#include <iostream>
 #include <magic_enum/magic_enum.hpp>
 #include <memory>
 #include <spdlog/spdlog.h>

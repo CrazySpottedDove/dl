@@ -2,8 +2,6 @@
 #include <bitset>
 #include <string>
 #include <string_view>
-#include <unordered_map>
-#include <unordered_set>
 namespace dl {
 enum class TokenType
 {
@@ -17,19 +15,25 @@ enum class TokenType
     WhiteSpace
 };
 
-struct CommentToken{
+struct CommentToken
+{
     std::string source_;
     std::size_t line_;
 };
 
 struct Token
 {
-    // Token 类型
-    TokenType type_;
     // Token 内容
     std::string_view source_;
     // Token 所在行号
     std::size_t line_;
+    // Token 类型
+    TokenType type_;
+    Token(std::string_view source, std::size_t line, TokenType type)
+        : source_(source)
+        , line_(line)
+        , type_(type)
+    {}
 };
 
 inline bool is_white_char(const char c)
@@ -78,35 +82,35 @@ inline bool is_symbol_char(const char c)
     return table.test(static_cast<unsigned char>(c));
 }
 
-inline bool is_equal_symbol_char(const char c){
+inline bool is_equal_symbol_char(const char c)
+{
     return c == '=' || c == '~' || c == '<' || c == '>';
 }
 
-inline bool is_keyword(const std::string_view str){
-    static const std::unordered_set<std::string_view> key_words = {
-        "and","break","do","else","elseif","end","false","for","function","goto","if","in","local","nil","not","or","repeat","return","then","true","until","while"
-    };
-    return key_words.find(str) != key_words.end();
+inline bool is_keyword(const std::string_view str)
+{
+    // if 链写法
+    return str == "and" || str == "break" || str == "do" || str == "else" || str == "elseif" ||
+           str == "end" || str == "false" || str == "for" || str == "function" || str == "goto" ||
+           str == "if" || str == "in" || str == "local" || str == "nil" || str == "not" ||
+           str == "or" || str == "repeat" || str == "return" || str == "then" || str == "true" ||
+           str == "until" || str == "while";
 }
 
-inline bool is_block_follow_keyword(const std::string_view str){
-    static const std::unordered_set<std::string_view> block_follow_keywords = {
-        "else","elseif","end","until"
-    };
-    return block_follow_keywords.find(str) != block_follow_keywords.end();
+inline bool is_block_follow_keyword(const std::string_view str)
+{
+    return str == "else" || str == "elseif" || str == "end" || str == "until";
 }
 
-inline bool is_unop_op(const std::string_view str){
-    static const std::unordered_set<std::string_view> unops = {
-        "not","-","#"
-    };
-    return unops.find(str) != unops.end();
+inline bool is_unop_op(const std::string_view str)
+{
+    return str == "not" || str == "-" || str == "#";
 }
 
-inline bool is_binop_op(const std::string_view str){
-    static const std::unordered_set<std::string_view> binops = {
-        "+","-","*","/","^","%","..","==","~=","<=",">=","<",">","and","or"
-    };
-    return binops.find(str) != binops.end();
+inline bool is_binop_op(const std::string_view str)
+{
+    return str == "+" || str == "-" || str == "*" || str == "/" || str == "^" || str == "%" ||
+           str == ".." || str == "==" || str == "~=" || str == "<=" || str == ">=" || str == "<" ||
+           str == ">" || str == "and" || str == "or";
 }
 }   // namespace dl
