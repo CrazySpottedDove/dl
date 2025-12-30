@@ -1,7 +1,6 @@
 #pragma once
 #include "dl/ast.h"
 #include "dl/token.h"
-#include <cstdint>
 #include <ostream>
 
 namespace dl {
@@ -21,17 +20,22 @@ public:
         , indent_(0)
     {}
 
-    void PrintAst(const AstNode* ast){
+    void PrintAst(const AstNode* ast)
+    {
         print_stat(ast);
         if constexpr (mode != AstPrintMode::Compress) {
             // 注意把文件末尾的注释也打印出来
             while (comment_index_ < comment_tokens_->size()) {
-                out_.put('\n');
+                // out_.put('\n');
+                buffer_.push_back('\n');
                 indent();
-                out_ << comment_token()->source_;
+                // out_ << comment_token()->source_;
+                buffer_.append(comment_token()->source_);
                 ++comment_index_;
             }
         }
+        out_ << buffer_;
+        buffer_.clear();
     }
 
 private:
@@ -50,7 +54,8 @@ private:
     void print_token(const Token* token)
     {
         if constexpr (mode == AstPrintMode::Compress) {
-            out_ << token->source_;
+            // out_ << token->source_;
+            buffer_.append(token->source_);
         }
         else if constexpr (mode == AstPrintMode::Auto) {
             line_ = token->line_;
@@ -62,8 +67,10 @@ private:
                         // 这个注释的行号小于当前行，且还没有消费，所以应该输出这个注释
                         // print 前 indent 已经做好，所以不用重复 indent()
                         // 我们只可能有短注释
-                        out_ << comment->source_;
-                        out_.put('\n');
+                        // out_ << comment->source_;
+                        buffer_.append(comment->source_);
+                        // out_.put('\n');
+                        buffer_.push_back('\n');
                         ++comment_index_;
                         indent();
                     }
@@ -73,10 +80,10 @@ private:
                 }
                 line_start_ = false;
             }
-            out_ << token->source_;
+            // out_ << token->source_;
+            buffer_.append(token->source_);
         }
     }
-    // void                print_token_format_mode(const Token* token);
     void print_expr(const AstNode* expr)
     {
         const auto type = expr->GetType();
@@ -210,9 +217,6 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(node->token_end_);
             return;
         }
@@ -424,9 +428,6 @@ private:
             enter_group();
             print_stat(function_node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(function_node->token_end_);
         }
         else if (stat->GetType() == AstNodeType::FunctionStat) {
@@ -453,9 +454,6 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(node->token_end_);
         }
         else if (stat->GetType() == AstNodeType::RepeatStat) {
@@ -464,9 +462,6 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(node->token_until_);
             space();
             print_expr(node->condition_.get());
@@ -501,9 +496,6 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(node->token_end_);
         }
         else if (stat->GetType() == AstNodeType::NumericForStat) {
@@ -541,9 +533,6 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(node->token_end_);
         }
         else if (stat->GetType() == AstNodeType::WhileStat) {
@@ -556,11 +545,7 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(node->token_end_);
-
         }
         else if (stat->GetType() == AstNodeType::DoStat) {
             auto node = static_cast<const DoStat*>(stat);
@@ -568,11 +553,9 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             print_token(node->token_end_);
-        }else if (stat->GetType() == AstNodeType::IfStat) {
+        }
+        else if (stat->GetType() == AstNodeType::IfStat) {
             auto node = static_cast<const IfStat*>(stat);
             print_token(node->token_if_);
             space();
@@ -582,9 +565,6 @@ private:
             enter_group();
             print_stat(node->body_.get());
             exit_group();
-            if constexpr (mode != AstPrintMode::Compress) {
-                indent();
-            }
             for (size_t i = 0; i < node->else_clause_list_.size(); ++i) {
                 auto clause = node->else_clause_list_[i].get();
                 print_token(clause->token_);
@@ -597,9 +577,6 @@ private:
                 enter_group();
                 print_stat(clause->body_.get());
                 exit_group();
-                if constexpr (mode != AstPrintMode::Compress) {
-                    indent();
-                }
             }
             print_token(node->token_end_);
         }
@@ -672,14 +649,16 @@ private:
 
             // 块级语句之间也仍然要换行
             if (stat_group == FormatStatGroup::Block) {
-                out_.put('\n');
+                // out_.put('\n');
+                buffer_.push_back('\n');
                 return;
             }
 
             // 如果组不同，则换行
             if (stat_group != last_format_stat_group_) {
                 // 不同组，插入空行
-                out_.put('\n');
+                // out_.put('\n');
+                buffer_.push_back('\n');
             }
         }
     }
@@ -708,14 +687,19 @@ private:
     void                indent()
     {
         for (int i = 0; i < indent_; ++i) {
-            out_.put('\t');
+            // out_.put('\t');
+            buffer_.push_back('\t');
         }
     }
-    void space() { out_.put(' '); }
+    void space() {
+        // out_.put(' ');
+        buffer_.push_back(' ');
+    }
     void breakline()
     {
         if constexpr (mode == AstPrintMode::Compress) {
-            out_.put('\n');
+            // out_.put('\n');
+            buffer_.push_back('\n');
         }
         else {
             if (comment_index_ < comment_tokens_->size()) {
@@ -723,11 +707,13 @@ private:
                 if (line_ == comment->line_) {
                     // 发现当前行有注释，在行末追加
                     space();
-                    out_ << comment->source_;
+                    // out_ << comment->source_;
+                    buffer_.append(comment->source_);
                     ++comment_index_;
                 }
             }
-            out_.put('\n');
+            // out_.put('\n');
+            buffer_.push_back('\n');
             line_start_ = true;
         }
     }
@@ -757,12 +743,7 @@ private:
         --indent_;
         is_block_start_ = false;
     }
-    // inline void enter_group_format_mode()
-    // {
-    //     breakline_format_mode();
-    //     ++indent_;
-    //     set_format_stat_group(FormatStatGroup::None);
-    // }
+
     void enter_group()
     {
         breakline();
@@ -772,18 +753,19 @@ private:
         }
     }
 
-    // inline void exit_group_format_mode() { --indent_; }
     void exit_group()
     {
         if constexpr (mode != AstPrintMode::Compress) {
             --indent_;
+            indent();
         }
     }
 
     std::ostream&                    out_;
-    std::size_t                      line_                   = 1;
-    std::size_t                      comment_index_          = 0;
-    const std::vector<CommentToken>* comment_tokens_         = nullptr;
+    std::string                      buffer_;
+    std::size_t                      line_           = 1;
+    std::size_t                      comment_index_  = 0;
+    const std::vector<CommentToken>* comment_tokens_ = nullptr;
     int                              indent_;
     FormatStatGroup                  last_format_stat_group_ = FormatStatGroup::None;
     bool                             line_start_             = true;
