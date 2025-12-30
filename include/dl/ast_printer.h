@@ -81,207 +81,351 @@ private:
 	}
 	void print_expr(const AstNode* expr)
 	{
-		const auto type = expr->GetType();
-		if (type == AstNodeType::BinopExpr) {
-			auto node = static_cast<const BinopExpr*>(expr);
+		const auto type = expr->type_;
+		if (type == AstNodeType::AddExpr) {
 			if constexpr (mode == AstPrintMode::Compress) {
-				const bool need_space =
-					(node->token_op_->source_ == "and" || node->token_op_->source_ == "or");
-				print_expr(node->lhs_.get());
-				if (need_space) {
-					space();
-					print_token(node->token_op_);
-					space();
-				}
-				else {
-					print_token(node->token_op_);
-				}
+				print_expr(expr->add_expr_.lhs_);
+				append('+');
 			}
 			else if constexpr (mode == AstPrintMode::Auto) {
-				print_expr(node->lhs_.get());
+				print_expr(expr->add_expr_.lhs_);
 				space();
-				print_token(node->token_op_);
+				append('+');
 				space();
 			}
-
-			print_expr(node->rhs_.get());
-			return;
+			print_expr(expr->add_expr_.rhs_);
 		}
-		if (type == AstNodeType::NotExpr) {
-			auto node = static_cast<const NotExpr*>(expr);
-			print_token(node->token_op_);
+		else if (type == AstNodeType::SubExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->sub_expr_.lhs_);
+				append('-');
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->sub_expr_.lhs_);
+				space();
+				append('-');
+				space();
+			}
+			print_expr(expr->sub_expr_.rhs_);
+		}
+		else if (type == AstNodeType::MulExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->mul_expr_.lhs_);
+				append('*');
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->mul_expr_.lhs_);
+				space();
+				append('*');
+				space();
+			}
+			print_expr(expr->mul_expr_.rhs_);
+		}
+		else if (type == AstNodeType::DivExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->div_expr_.lhs_);
+				append('/');
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->div_expr_.lhs_);
+				space();
+				append('/');
+				space();
+			}
+			print_expr(expr->div_expr_.rhs_);
+		}
+		else if (type == AstNodeType::ModExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->mod_expr_.lhs_);
+				append('%');
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->mod_expr_.lhs_);
+				space();
+				append('%');
+
+				space();
+			}
+			print_expr(expr->mod_expr_.rhs_);
+		}
+		else if (type == AstNodeType::PowExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->pow_expr_.lhs_);
+				append('^');
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->pow_expr_.lhs_);
+				space();
+				append('^');
+				space();
+			}
+			print_expr(expr->pow_expr_.rhs_);
+		}
+		else if (type == AstNodeType::ConcatExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->concat_expr_.lhs_);
+				append("..");
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->concat_expr_.lhs_);
+				space();
+				append("..");
+				space();
+			}
+			print_expr(expr->concat_expr_.rhs_);
+		}
+		else if (type == AstNodeType::EqExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->eq_expr_.lhs_);
+				append("==");
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->eq_expr_.lhs_);
+				space();
+				append("==");
+				space();
+			}
+			print_expr(expr->eq_expr_.rhs_);
+		}
+		else if (type == AstNodeType::NeqExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->neq_expr_.lhs_);
+				append("~=");
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->neq_expr_.lhs_);
+
+				space();
+				append("~=");
+				space();
+			}
+			print_expr(expr->neq_expr_.rhs_);
+		}
+		else if (type == AstNodeType::LtExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->lt_expr_.lhs_);
+
+				append('<');
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->lt_expr_.lhs_);
+				space();
+				append('<');
+				space();
+			}
+			print_expr(expr->lt_expr_.rhs_);
+		}
+		else if (type == AstNodeType::LeExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->le_expr_.lhs_);
+				append("<=");
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->le_expr_.lhs_);
+				space();
+				append("<=");
+				space();
+			}
+			print_expr(expr->le_expr_.rhs_);
+		}
+		else if (type == AstNodeType::GtExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->gt_expr_.lhs_);
+				append('>');
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->gt_expr_.lhs_);
+				space();
+				append('>');
+				space();
+			}
+			print_expr(expr->gt_expr_.rhs_);
+		}
+		else if (type == AstNodeType::GeExpr) {
+			if constexpr (mode == AstPrintMode::Compress) {
+				print_expr(expr->ge_expr_.lhs_);
+				append(">=");
+			}
+			else if constexpr (mode == AstPrintMode::Auto) {
+				print_expr(expr->ge_expr_.lhs_);
+				space();
+				append(">=");
+				space();
+			}
+			print_expr(expr->ge_expr_.rhs_);
+		}
+		else if (type == AstNodeType::AndExpr) {
+			print_expr(expr->and_expr_.lhs_);
 			space();
-			print_expr(node->rhs_.get());
-			return;
+			append("and");
+			space();
+			print_expr(expr->and_expr_.rhs_);
 		}
-		if (type == AstNodeType::LengthExpr) {
-			auto node = static_cast<const LengthExpr*>(expr);
-			print_token(node->token_op_);
-			print_expr(node->rhs_.get());
-			return;
+		else if (type == AstNodeType::OrExpr) {
+			print_expr(expr->or_expr_.lhs_);
+			space();
+			append("or");
+			space();
+			print_expr(expr->or_expr_.rhs_);
 		}
-		if (type == AstNodeType::NegativeExpr) {
-			auto node = static_cast<const NegativeExpr*>(expr);
-			print_token(node->token_op_);
-			print_expr(node->rhs_.get());
-			return;
+		else if (type == AstNodeType::NotExpr) {
+			print_token(expr->first_token_);
+			space();
+			print_expr(expr->not_expr_.rhs_);
 		}
-		if (type == AstNodeType::NumberLiteral || type == AstNodeType::StringLiteral ||
-			type == AstNodeType::NilLiteral || type == AstNodeType::BooleanLiteral ||
-			type == AstNodeType::VargLiteral) {
-			print_token(expr->GetFirstToken());
-			return;
+		else if (type == AstNodeType::LengthExpr) {
+			print_token(expr->first_token_);
+			print_expr(expr->length_expr_.rhs_);
 		}
-		if (type == AstNodeType::FieldExpr) {
-			auto node = static_cast<const FieldExpr*>(expr);
-			print_expr(node->base_.get());
-			print_token(node->token_dot_);
-			print_token(node->field_);
-			return;
+		else if (type == AstNodeType::NegativeExpr) {
+			print_token(expr->first_token_);
+			print_expr(expr->negative_expr_.rhs_);
 		}
-		if (type == AstNodeType::IndexExpr) {
-			auto node = static_cast<const IndexExpr*>(expr);
-			print_expr(node->base_.get());
-			print_token(node->token_open_bracket_);
-			print_expr(node->index_.get());
-			print_token(node->token_close_bracket_);
-			return;
+		else if (type == AstNodeType::NumberLiteral || type == AstNodeType::StringLiteral ||
+				 type == AstNodeType::NilLiteral || type == AstNodeType::BooleanLiteral ||
+				 type == AstNodeType::VargLiteral) {
+			print_token(expr->first_token_);
 		}
-		if (type == AstNodeType::MethodExpr) {
-			auto node = static_cast<const MethodExpr*>(expr);
-			print_expr(node->base_.get());
-			print_token(node->token_colon_);
-			print_token(node->method_);
+		else if (type == AstNodeType::FieldExpr) {
 
-			const auto function_args = node->function_arguments_.get();
-			const auto call_type     = function_args->GetType();
+			print_expr(expr->field_expr_.base_);
+			append('.');
+			print_token(expr->field_expr_.field_);
+		}
+		else if (type == AstNodeType::IndexExpr) {
+			print_expr(expr->index_expr_.base_);
+			append('[');
+			print_expr(expr->index_expr_.index_);
+			append(']');
+		}
+		else if (type == AstNodeType::MethodExpr) {
+
+			print_expr(expr->method_expr_.base_);
+			append(':');
+			print_token(expr->method_expr_.method_);
+
+			const auto function_args = expr->method_expr_.function_arguments_;
+			const auto call_type     = function_args->type_;
 			if (call_type == AstNodeType::StringCall) {
-				print_token(static_cast<const StringCall*>(function_args)->token_);
+				print_token(function_args->first_token_);
 			}
 			else if (call_type == AstNodeType::ArgCall) {
-				auto arg_call = static_cast<const ArgCall*>(function_args);
-				print_token(arg_call->token_open_paren_);
-				for (size_t i = 0; i < arg_call->arg_list_.size(); ++i) {
-					print_expr(arg_call->arg_list_[i].get());
-					if (i < arg_call->token_comma_list_.size()) {
-						print_token(arg_call->token_comma_list_[i]);
+				auto& arg_call = function_args->arg_call_;
+				append('(');
+				for (size_t i = 0; i < arg_call.arg_list_.size(); ++i) {
+					print_expr(arg_call.arg_list_[i]);
+					if (i < arg_call.arg_list_.size() - 1) {
+						append(',');
 						if constexpr (mode != AstPrintMode::Compress) {
 							space();
 						}
 					}
 				}
-				print_token(arg_call->token_close_paren_);
+				append(')');
 			}
 			else if (call_type == AstNodeType::TableCall) {
-				print_expr(static_cast<const TableCall*>(function_args)->table_expr_.get());
+				print_expr(expr->table_call_.table_expr_);
 			}
-			return;
 		}
-		if (type == AstNodeType::CallExpr) {
-			auto node = static_cast<const CallExpr*>(expr);
-			print_expr(node->base_.get());
+		else if (type == AstNodeType::CallExpr) {
+			auto& node = expr->call_expr_;
+			print_expr(node.base_);
 
-			const auto function_args = node->function_arguments_.get();
-			const auto call_type     = function_args->GetType();
+			const auto function_args = node.function_arguments_;
+			const auto call_type     = function_args->type_;
 			if (call_type == AstNodeType::StringCall) {
-				print_token(static_cast<const StringCall*>(function_args)->token_);
+				print_token(function_args->first_token_);
 			}
 			else if (call_type == AstNodeType::ArgCall) {
-				auto arg_call = static_cast<const ArgCall*>(function_args);
-				print_token(arg_call->token_open_paren_);
-				for (size_t i = 0; i < arg_call->arg_list_.size(); ++i) {
-					print_expr(arg_call->arg_list_[i].get());
-					if (i < arg_call->token_comma_list_.size()) {
-						print_token(arg_call->token_comma_list_[i]);
+				auto& arg_call = function_args->arg_call_;
+				append('(');
+				for (size_t i = 0; i < arg_call.arg_list_.size(); ++i) {
+					print_expr(arg_call.arg_list_[i]);
+					if (i < arg_call.arg_list_.size() - 1) {
+						append(',');
 						if constexpr (mode != AstPrintMode::Compress) {
 							space();
 						}
 					}
 				}
-				print_token(arg_call->token_close_paren_);
+				append(')');
 			}
 			else if (call_type == AstNodeType::TableCall) {
-				print_expr(static_cast<const TableCall*>(function_args)->table_expr_.get());
+				print_expr(function_args->table_call_.table_expr_);
 			}
-			return;
 		}
-		if (type == AstNodeType::FunctionLiteral) {
-			auto node = static_cast<const FunctionLiteral*>(expr);
-			print_token(node->token_function_);
-			print_token(node->token_open_paren_);
-			for (size_t i = 0; i < node->arg_list_.size(); ++i) {
-				print_token(node->arg_list_[i]);
-				if (i < node->token_arg_comma_list_.size()) {
-					print_token(node->token_arg_comma_list_[i]);
+		else if (type == AstNodeType::FunctionLiteral) {
+			auto& node = expr->function_literal_;
+			print_token(expr->first_token_);
+			append('(');
+			for (size_t i = 0; i < node.arg_list_.size(); ++i) {
+				print_token(node.arg_list_[i]);
+				if (i < node.arg_list_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
 				}
 			}
-			print_token(node->token_close_paren_);
+			append(')');
 			enter_group();
-			print_stat(node->body_.get());
+			print_stat(node.body_);
 			exit_group();
-			print_token(node->token_end_);
-			return;
+			print_token(node.end_token_);
 		}
-		if (type == AstNodeType::VariableExpr) {
-			print_token(static_cast<const VariableExpr*>(expr)->token_);
-			return;
+		else if (type == AstNodeType::VariableExpr) {
+			print_token(expr->first_token_);
 		}
-		if (type == AstNodeType::ParenExpr) {
-			auto node = static_cast<const ParenExpr*>(expr);
-			print_token(node->token_open_paren_);
-			print_expr(node->expression_.get());
-			print_token(node->token_close_paren_);
-			return;
+		else if (type == AstNodeType::ParenExpr) {
+			auto& node = expr->paren_expr_;
+			print_token(expr->first_token_);
+			print_expr(node.expression_);
+			append(')');
 		}
-		if (type == AstNodeType::TableLiteral) {
-			auto node = static_cast<const TableLiteral*>(expr);
-			print_token(node->token_open_brace_);
-			if (!node->entry_list_.empty()) {
+		else if (type == AstNodeType::TableLiteral) {
+			auto& node = expr->table_literal_;
+			print_token(expr->first_token_);
+			if (!node.entry_list_.empty()) {
 				if constexpr (mode == AstPrintMode::Compress) {
-					for (size_t i = 0; i < node->entry_list_.size(); ++i) {
-						auto       entry      = node->entry_list_[i].get();
-						const auto entry_type = entry->GetType();
-						if (entry_type == TableEntryType::Field) {
-							auto field_entry = static_cast<const FieldEntry*>(entry);
-							print_token(field_entry->field_);
+					for (size_t i = 0; i < node.entry_list_.size(); ++i) {
+						auto       entry      = node.entry_list_[i];
+						const auto entry_type = entry.type_;
+						if (entry_type == AstNode::TableEntryType::Field) {
+							auto& field_entry = entry.field_entry_;
+							print_token(field_entry.field_);
 
-							print_token(field_entry->token_equals_);
+							append('=');
 
-							print_expr(field_entry->value_.get());
+							print_expr(field_entry.value_);
 						}
-						else if (entry_type == TableEntryType::Index) {
-							auto index_entry = static_cast<const IndexEntry*>(entry);
-							print_token(index_entry->token_open_bracket_);
-							print_expr(index_entry->index_.get());
-							print_token(index_entry->token_close_bracket_);
-
-							print_token(index_entry->token_equals_);
-
-							print_expr(index_entry->value_.get());
+						else if (entry_type == AstNode::TableEntryType::Index) {
+							auto& index_entry = entry.index_entry_;
+							append('[');
+							print_expr(index_entry.index_);
+							append(']');
+							append('=');
+							print_expr(index_entry.value_);
 						}
-						else if (entry_type == TableEntryType::Value) {
-							auto value_entry = static_cast<const ValueEntry*>(entry);
-							print_expr(value_entry->value_.get());
+						else if (entry_type == AstNode::TableEntryType::Value) {
+							auto& value_entry = entry.value_entry_;
+							print_expr(value_entry.value_);
 						}
 						// Other entry type UNREACHABLE
-						if (i < node->token_separator_list_.size()) {
-							print_token(node->token_separator_list_[i]);
+						if (i < node.entry_list_.size() - 1) {
+							append(',');
 						}
 					}
 				}
 				else if constexpr (mode == AstPrintMode::Auto) {
 					// 对于纯 value entry 且较短的表，尝试一行输出
 					bool one_line = true;
-					if (node->entry_list_.size() > 10) {
+					if (node.entry_list_.size() > 10) {
 						one_line = false;
 					}
 					else {
-						for (size_t i = 0; i < node->entry_list_.size(); ++i) {
-							const auto entry_type = node->entry_list_[i]->GetType();
-							if (entry_type != TableEntryType::Value) {
+						for (size_t i = 0; i < node.entry_list_.size(); ++i) {
+							const auto entry_type = node.entry_list_[i].type_;
+							if (entry_type != AstNode::TableEntryType::Value) {
 								one_line = false;
 								break;
 							}
@@ -290,13 +434,13 @@ private:
 
 					if (one_line) {
 						// 单行输出
-						for (size_t i = 0; i < node->entry_list_.size(); ++i) {
-							auto entry       = node->entry_list_[i].get();
-							auto value_entry = static_cast<const ValueEntry*>(entry);
-							print_expr(value_entry->value_.get());
+						for (size_t i = 0; i < node.entry_list_.size(); ++i) {
+							auto  entry       = node.entry_list_[i];
+							auto& value_entry = entry.value_entry_;
+							print_expr(value_entry.value_);
 							// Other entry type UNREACHABLE
-							if (i < node->entry_list_.size() - 1) {
-								print_token(node->token_separator_list_[i]);
+							if (i < node.entry_list_.size() - 1) {
+								append(',');
 								space();
 							}
 						}
@@ -304,35 +448,35 @@ private:
 					else {
 						breakline();
 						inc_indent();
-						for (size_t i = 0; i < node->entry_list_.size(); ++i) {
-							auto       entry      = node->entry_list_[i].get();
-							const auto entry_type = entry->GetType();
+						for (size_t i = 0; i < node.entry_list_.size(); ++i) {
+							auto       entry      = node.entry_list_[i];
+							const auto entry_type = entry.type_;
 							indent();
-							if (entry_type == TableEntryType::Field) {
-								auto field_entry = static_cast<const FieldEntry*>(entry);
-								print_token(field_entry->field_);
+							if (entry_type == AstNode::TableEntryType::Field) {
+								auto& field_entry = entry.field_entry_;
+								print_token(field_entry.field_);
 								space();
-								print_token(field_entry->token_equals_);
+								append('=');
 								space();
-								print_expr(field_entry->value_.get());
+								print_expr(field_entry.value_);
 							}
-							else if (entry_type == TableEntryType::Index) {
-								auto index_entry = static_cast<const IndexEntry*>(entry);
-								print_token(index_entry->token_open_bracket_);
-								print_expr(index_entry->index_.get());
-								print_token(index_entry->token_close_bracket_);
+							else if (entry_type == AstNode::TableEntryType::Index) {
+								auto& index_entry = entry.index_entry_;
+								append('[');
+								print_expr(index_entry.index_);
+								append(']');
 								space();
-								print_token(index_entry->token_equals_);
+								append('=');
 								space();
-								print_expr(index_entry->value_.get());
+								print_expr(index_entry.value_);
 							}
-							else if (entry_type == TableEntryType::Value) {
-								auto value_entry = static_cast<const ValueEntry*>(entry);
-								print_expr(value_entry->value_.get());
+							else if (entry_type == AstNode::TableEntryType::Value) {
+								auto& value_entry = entry.value_entry_;
+								print_expr(value_entry.value_);
 							}
 							// Other entry type UNREACHABLE
-							if (i < node->entry_list_.size() - 1) {
-								print_token(node->token_separator_list_[i]);
+							if (i < node.entry_list_.size() - 1) {
+								append(',');
 							}
 							breakline();
 						}
@@ -341,16 +485,15 @@ private:
 					}
 				}
 			}
-			print_token(node->token_close_brace_);
-			return;
+			append('}');
 		}
 	}
 	void print_stat(const AstNode* stat)
 	{
-		if (stat->GetType() == AstNodeType::StatList) {
-			auto node = static_cast<const StatList*>(stat);
-			for (auto& stat : node->statement_list) {
-				print_stat(stat.get());
+		if (stat->type_ == AstNodeType::StatList) {
+			auto& node = stat->stat_list_;
+			for (auto& stat : node.statement_list_) {
+				print_stat(stat);
 			}
 			return;
 		}
@@ -360,49 +503,49 @@ private:
 			indent();
 		}
 
-		if (stat->GetType() == AstNodeType::BreakStat) {
-			print_token(stat->GetFirstToken());
+		if (stat->type_ == AstNodeType::BreakStat) {
+			print_token(stat->first_token_);
 		}
-		else if (stat->GetType() == AstNodeType::ReturnStat) {
-			auto node = static_cast<const ReturnStat*>(stat);
-			print_token(node->token_return_);
-			if (!node->expr_list_.empty()) {
+		else if (stat->type_ == AstNodeType::ReturnStat) {
+			auto& node = stat->return_stat_;
+			print_token(stat->first_token_);
+			if (!node.expr_list_.empty()) {
 				space();
-				for (size_t i = 0; i < node->expr_list_.size(); ++i) {
-					print_expr(node->expr_list_[i].get());
-					if (i < node->token_comma_list_.size()) {
-						print_token(node->token_comma_list_[i]);
+				for (size_t i = 0; i < node.expr_list_.size(); ++i) {
+					print_expr(node.expr_list_[i]);
+					if (i < node.expr_list_.size() - 1) {
+						append(',');
 						space();
 					}
 				}
 			}
 		}
-		else if (stat->GetType() == AstNodeType::LocalVarStat) {
-			auto node = static_cast<const LocalVarStat*>(stat);
-			print_token(node->token_local_);
+		else if (stat->type_ == AstNodeType::LocalVarStat) {
+			auto& node = stat->local_var_stat_;
+			print_token(stat->first_token_);
 			space();
-			for (size_t i = 0; i < node->var_list_.size(); ++i) {
-				print_token(node->var_list_[i]);
-				if (i < node->token_var_comma_list_.size()) {
-					print_token(node->token_var_comma_list_[i]);
+			for (size_t i = 0; i < node.var_list_.size(); ++i) {
+				print_token(node.var_list_[i]);
+				if (i < node.var_list_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
 				}
 			}
-			if (node->token_equals_) {
+			if (node.expr_list_.size() > 0) {
 				if constexpr (mode != AstPrintMode::Compress) {
 					space();
-					print_token(node->token_equals_);
+					append('=');
 					space();
 				}
 				else {
-					print_token(node->token_equals_);
+					append('=');
 				}
-				for (size_t i = 0; i < node->expr_list_.size(); ++i) {
-					print_expr(node->expr_list_[i].get());
-					if (i < node->token_expr_comma_list_.size()) {
-						print_token(node->token_expr_comma_list_[i]);
+				for (size_t i = 0; i < node.expr_list_.size(); ++i) {
+					print_expr(node.expr_list_[i]);
+					if (i < node.expr_list_.size() - 1) {
+						append(',');
 						if constexpr (mode != AstPrintMode::Compress) {
 							space();
 						}
@@ -410,106 +553,107 @@ private:
 				}
 			}
 		}
-		else if (stat->GetType() == AstNodeType::LocalFunctionStat) {
-			auto node = static_cast<const LocalFunctionStat*>(stat);
-			print_token(node->token_local_);
+		else if (stat->type_ == AstNodeType::LocalFunctionStat) {
+			auto& node = stat->local_function_stat_;
+			print_token(stat->first_token_);
 			space();
-			auto function_node = static_cast<const FunctionStat*>(node->function_stat_.get());
-			print_token(function_node->token_function_);
+			auto function_node = node.function_stat_;
+			print_token(function_node->first_token_);
 			space();
-			print_token(function_node->name_chain_[0]);
-			print_token(function_node->token_open_paren_);
-			for (size_t i = 0; i < function_node->arg_list_.size(); ++i) {
-				print_token(function_node->arg_list_[i]);
-				if (i < function_node->token_arg_comma_list_.size()) {
-					print_token(function_node->token_arg_comma_list_[i]);
+			auto& function_stat = function_node->function_stat_;
+			print_token(function_stat.name_chain_[0]);
+			append('(');
+			for (size_t i = 0; i < function_stat.arg_list_.size(); ++i) {
+				print_token(function_stat.arg_list_[i]);
+				if (i < function_stat.arg_list_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
 				}
 			}
-			print_token(function_node->token_close_paren_);
+			append(')');
 			enter_group();
-			print_stat(function_node->body_.get());
+			print_stat(function_stat.body_);
 			exit_group();
-			print_token(function_node->token_end_);
+			print_token(function_stat.end_token_);
 		}
-		else if (stat->GetType() == AstNodeType::FunctionStat) {
-			auto node = static_cast<const FunctionStat*>(stat);
-			print_token(node->token_function_);
+		else if (stat->type_ == AstNodeType::FunctionStat) {
+			auto& function_stat = stat->function_stat_;
+			print_token(stat->first_token_);
 			space();
-			for (size_t i = 0; i < node->name_chain_.size(); ++i) {
-				print_token(node->name_chain_[i]);
-				if (i < node->token_name_chain_separator_.size()) {
-					print_token(node->token_name_chain_separator_[i]);
+			for (size_t i = 0; i < function_stat.name_chain_.size(); ++i) {
+				print_token(function_stat.name_chain_[i]);
+				if (i < function_stat.name_chain_.size() - 1) {
+					append('.');
 				}
 			}
-			print_token(node->token_open_paren_);
-			for (size_t i = 0; i < node->arg_list_.size(); ++i) {
-				print_token(node->arg_list_[i]);
-				if (i < node->token_arg_comma_list_.size()) {
-					print_token(node->token_arg_comma_list_[i]);
+			append('(');
+			for (size_t i = 0; i < function_stat.arg_list_.size(); ++i) {
+				print_token(function_stat.arg_list_[i]);
+				if (i < function_stat.arg_list_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
 				}
 			}
-			print_token(node->token_close_paren_);
+			append(')');
 			enter_group();
-			print_stat(node->body_.get());
+			print_stat(function_stat.body_);
 			exit_group();
-			print_token(node->token_end_);
+			print_token(function_stat.end_token_);
 		}
-		else if (stat->GetType() == AstNodeType::RepeatStat) {
-			auto node = static_cast<const RepeatStat*>(stat);
-			print_token(node->token_repeat_);
+		else if (stat->type_ == AstNodeType::RepeatStat) {
+			auto& node = stat->repeat_stat_;
+			print_token(stat->first_token_);
 			enter_group();
-			print_stat(node->body_.get());
+			print_stat(node.body_);
 			exit_group();
-			print_token(node->token_until_);
+			print_token(node.until_token_);
 			space();
-			print_expr(node->condition_.get());
+			print_expr(node.condition_);
 		}
-		else if (stat->GetType() == AstNodeType::GenericForStat) {
-			auto node = static_cast<const GenericForStat*>(stat);
-			print_token(node->token_for_);
+		else if (stat->type_ == AstNodeType::GenericForStat) {
+			auto& node = stat->generic_for_stat_;
+			print_token(stat->first_token_);
 			space();
-			for (size_t i = 0; i < node->var_list_.size(); ++i) {
-				print_token(node->var_list_[i]);
-				if (i < node->token_var_comma_list_.size()) {
-					print_token(node->token_var_comma_list_[i]);
-					if constexpr (mode != AstPrintMode::Compress) {
-						space();
-					}
-				}
-			}
-			space();
-			print_token(node->token_in_);
-			space();
-			for (size_t i = 0; i < node->generator_list_.size(); ++i) {
-				print_expr(node->generator_list_[i].get());
-				if (i < node->token_generator_comma_list_.size()) {
-					print_token(node->token_generator_comma_list_[i]);
+			for (size_t i = 0; i < node.var_list_.size(); ++i) {
+				print_token(node.var_list_[i]);
+				if (i < node.var_list_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
 				}
 			}
 			space();
-			print_token(node->token_do_);
-			enter_group();
-			print_stat(node->body_.get());
-			exit_group();
-			print_token(node->token_end_);
-		}
-		else if (stat->GetType() == AstNodeType::NumericForStat) {
-			auto node = static_cast<const NumericForStat*>(stat);
-			print_token(node->token_for_);
+			append("in");
 			space();
-			for (size_t i = 0; i < node->var_list_.size(); ++i) {
-				print_token(node->var_list_[i]);
-				if (i < node->token_var_comma_list_.size()) {
-					print_token(node->token_var_comma_list_[i]);
+			for (size_t i = 0; i < node.generator_list_.size(); ++i) {
+				print_expr(node.generator_list_[i]);
+				if (i < node.generator_list_.size() - 1) {
+					append(',');
+					if constexpr (mode != AstPrintMode::Compress) {
+						space();
+					}
+				}
+			}
+			space();
+			append("do");
+			enter_group();
+			print_stat(node.body_);
+			exit_group();
+			print_token(node.end_token_);
+		}
+		else if (stat->type_ == AstNodeType::NumericForStat) {
+			auto& node = stat->numeric_for_stat_;
+			print_token(stat->first_token_);
+			space();
+			for (size_t i = 0; i < node.var_list_.size(); ++i) {
+				print_token(node.var_list_[i]);
+				if (i < node.var_list_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
@@ -517,83 +661,82 @@ private:
 			}
 			if constexpr (mode != AstPrintMode::Compress) {
 				space();
-				print_token(node->token_equals_);
+				append('=');
 				space();
 			}
 			else {
-				print_token(node->token_equals_);
+				append('=');
 			}
-			for (size_t i = 0; i < node->range_list_.size(); ++i) {
-				print_expr(node->range_list_[i].get());
-				if (i < node->token_range_comma_list_.size()) {
-					print_token(node->token_range_comma_list_[i]);
+			for (size_t i = 0; i < node.range_list_.size(); ++i) {
+				print_expr(node.range_list_[i]);
+				if (i < node.range_list_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
 				}
 			}
 			space();
-			print_token(node->token_do_);
+			append("do");
 			enter_group();
-			print_stat(node->body_.get());
+			print_stat(node.body_);
 			exit_group();
-			print_token(node->token_end_);
+			print_token(node.end_token_);
 		}
-		else if (stat->GetType() == AstNodeType::WhileStat) {
-			auto node = static_cast<const WhileStat*>(stat);
-			print_token(node->token_while_);
+		else if (stat->type_ == AstNodeType::WhileStat) {
+			auto& node = stat->while_stat_;
+			print_token(stat->first_token_);
 			space();
-			print_expr(node->condition_.get());
+			print_expr(node.condition_);
 			space();
-			print_token(node->token_do_);
+			append("do");
 			enter_group();
-			print_stat(node->body_.get());
+			print_stat(node.body_);
 			exit_group();
-			print_token(node->token_end_);
+			print_token(node.end_token_);
 		}
-		else if (stat->GetType() == AstNodeType::DoStat) {
-			auto node = static_cast<const DoStat*>(stat);
-			print_token(node->token_do_);
+		else if (stat->type_ == AstNodeType::DoStat) {
+			auto& node = stat->do_stat_;
+			print_token(stat->first_token_);
 			enter_group();
-			print_stat(node->body_.get());
+			print_stat(node.body_);
 			exit_group();
-			print_token(node->token_end_);
+			print_token(node.end_token_);
 		}
-		else if (stat->GetType() == AstNodeType::IfStat) {
-			auto node = static_cast<const IfStat*>(stat);
-			print_token(node->token_if_);
+		else if (stat->type_ == AstNodeType::IfStat) {
+			auto& node = stat->if_stat_;
+			print_token(stat->first_token_);
 			space();
-			print_expr(node->condition_.get());
+			print_expr(node.condition_);
 			space();
-			print_token(node->token_then_);
+			append("then");
 			enter_group();
-			print_stat(node->body_.get());
+			print_stat(node.body_);
 			exit_group();
-			for (size_t i = 0; i < node->else_clause_list_.size(); ++i) {
-				auto clause = node->else_clause_list_[i].get();
-				print_token(clause->token_);
-				if (clause->GetCondition()) {
+			for (size_t i = 0; i < node.else_clauses_.size(); ++i) {
+				auto& clause = node.else_clauses_[i];
+				print_token(clause.else_token_);
+				if (clause.type_ == AstNode::ElseClauseType::ElseIfClause) {
 					space();
-					print_expr(clause->GetCondition());
+					print_expr(clause.else_if_clause_.condition_);
 					space();
-					print_token(clause->GetTokenThen());
+					append("then");
 				}
 				enter_group();
-				print_stat(clause->body_.get());
+				print_stat(clause.body_);
 				exit_group();
 			}
-			print_token(node->token_end_);
+			print_token(node.end_token_);
 		}
-		else if (stat->GetType() == AstNodeType::CallExprStat) {
-			auto node = static_cast<const CallExprStat*>(stat);
-			print_expr(node->expression_.get());
+		else if (stat->type_ == AstNodeType::CallExprStat) {
+			print_expr(stat->call_expr_stat_.expression_);
 		}
-		else if (stat->GetType() == AstNodeType::AssignmentStat) {
-			auto node = static_cast<const AssignmentStat*>(stat);
-			for (size_t i = 0; i < node->lhs_.size(); ++i) {
-				print_expr(node->lhs_[i].get());
-				if (i < node->token_lhs_separator_list_.size()) {
-					print_token(node->token_lhs_separator_list_[i]);
+		else if (stat->type_ == AstNodeType::AssignmentStat) {
+			auto& node = stat->assignment_stat_;
+			for (size_t i = 0; i < node.lhs_.size(); ++i) {
+				print_expr(node.lhs_[i]);
+				if (i < node.lhs_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
@@ -601,33 +744,33 @@ private:
 			}
 			if constexpr (mode != AstPrintMode::Compress) {
 				space();
-				print_token(node->token_equals_);
+				append('=');
 				space();
 			}
 			else {
-				print_token(node->token_equals_);
+				append('=');
 			}
-			for (size_t i = 0; i < node->rhs_.size(); ++i) {
-				print_expr(node->rhs_[i].get());
-				if (i < node->token_rhs_separator_list_.size()) {
-					print_token(node->token_rhs_separator_list_[i]);
+			for (size_t i = 0; i < node.rhs_.size(); ++i) {
+				print_expr(node.rhs_[i]);
+				if (i < node.rhs_.size() - 1) {
+					append(',');
 					if constexpr (mode != AstPrintMode::Compress) {
 						space();
 					}
 				}
 			}
 		}
-		else if (stat->GetType() == AstNodeType::GotoStat) {
-			auto node = static_cast<const GotoStat*>(stat);
-			print_token(node->token_goto_);
+		else if (stat->type_ == AstNodeType::GotoStat) {
+			auto& node = stat->goto_stat_;
+			print_token(stat->first_token_);
 			space();
-			print_token(node->token_label_);
+			print_token(node.label_);
 		}
-		else if (stat->GetType() == AstNodeType::LabelStat) {
-			auto node = static_cast<const LabelStat*>(stat);
-			print_token(node->token_label_start_);
-			print_token(node->token_label_);
-			print_token(node->token_label_end_);
+		else if (stat->type_ == AstNodeType::LabelStat) {
+			auto& node = stat->label_stat_;
+			print_token(stat->first_token_);
+			print_token(node.label_);
+			append("::");
 		}
 		breakline();
 		if constexpr (mode != AstPrintMode::Compress) {
@@ -665,7 +808,7 @@ private:
 	}
 	FormatStatGroup get_format_stat_group(const AstNode* stat) const noexcept
 	{
-		switch (stat->GetType()) {
+		switch (stat->type_) {
 		case AstNodeType::BreakStat: return FormatStatGroup::Break;
 		case AstNodeType::ReturnStat: return FormatStatGroup::Return;
 		case AstNodeType::LocalVarStat: return FormatStatGroup::LocalDecl;

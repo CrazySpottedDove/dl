@@ -96,6 +96,7 @@ inline bool is_keyword(const std::string_view str)
 		   str == "or" || str == "repeat" || str == "return" || str == "then" || str == "true" ||
 		   str == "until" || str == "while";
 }
+
 // ab
 inline bool is_block_follow_keyword(const std::string_view str)
 {

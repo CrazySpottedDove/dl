@@ -5,6 +5,7 @@
 #include <spdlog/spdlog.h>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 namespace dl {
 constexpr char DL_TOKENIZER_EOF                     = '\0';
@@ -269,7 +270,7 @@ private:
                 while (is_identifier_char(peek())) {
                     step();
                 }
-                if (is_keyword(text_.substr(token_start, position_ - token_start))) {
+                if (is_keyword(std::string_view(text_.data()+token_start, position_ - token_start))) {
                     addToken(TokenType::Keyword, token_start);
                 }
                 else {

@@ -1,6 +1,7 @@
 #pragma once
 #include "dl/arena.h"
-#include "dl/ast_new.h"
+#include "dl/ast.h"
+#include "dl/token.h"
 
 namespace dl {
 class AstManager
@@ -21,15 +22,15 @@ public:
 	{
 		return ast_arena_.emplace(AstNode::TableLiteral{std::move(entries)}, token_open_brace);
 	}
-	AstNode* MakeFunctionLiteral(std::vector<Token*>&& args, AstNode* body, Token* token_function)
+	AstNode* MakeFunctionLiteral(std::vector<Token*>&& args, AstNode* body, Token* token_function, Token* token_end)
 	{
-		return ast_arena_.emplace(AstNode::FunctionLiteral{std::move(args), body}, token_function);
+		return ast_arena_.emplace(AstNode::FunctionLiteral{std::move(args), body, token_end}, token_function);
 	}
 	AstNode* MakeFunctionStat(std::vector<Token*>&& name_chain, std::vector<Token*>&& args,
-							  AstNode* body, Token* token_function)
+							  AstNode* body, Token* token_function, Token* token_end)
 	{
 		return ast_arena_.emplace(
-			AstNode::FunctionStat{std::move(name_chain), std::move(args), body}, token_function);
+			AstNode::FunctionStat{std::move(name_chain), std::move(args), body, token_end}, token_function);
 	}
 	AstNode* MakeArgCall(std::vector<AstNode*>&& args, Token* token_open_paren)
 	{
@@ -169,33 +170,34 @@ public:
 	}
 	AstNode* MakeIfStat(AstNode* cond, AstNode* body,
 						std::vector<AstNode::IfStat::GeneralElseClause>&& else_clauses,
-						Token*                                            token_if)
+						Token*                                            token_if, Token* token_end)
 	{
-		return ast_arena_.emplace(AstNode::IfStat{cond, body, std::move(else_clauses)}, token_if);
+		return ast_arena_.emplace(AstNode::IfStat{cond, body, std::move(else_clauses), token_end},
+								  token_if);
 	}
-	AstNode* MakeDoStat(AstNode* body, Token* token_do)
+	AstNode* MakeDoStat(AstNode* body, Token* token_do, Token* token_end)
 	{
-		return ast_arena_.emplace(AstNode::DoStat{body}, token_do);
+		return ast_arena_.emplace(AstNode::DoStat{body, token_end}, token_do);
 	}
-	AstNode* MakeWhileStat(AstNode* cond, AstNode* body, Token* token_while)
+	AstNode* MakeWhileStat(AstNode* cond, AstNode* body, Token* token_while, Token* token_end)
 	{
-		return ast_arena_.emplace(AstNode::WhileStat{cond, body}, token_while);
+		return ast_arena_.emplace(AstNode::WhileStat{cond, body, token_end}, token_while);
 	}
 	AstNode* MakeNumericForStat(std::vector<Token*>&& vars, std::vector<AstNode*>&& range,
-								AstNode* body, Token* token_for)
+								AstNode* body, Token* token_for, Token* token_end)
 	{
-		return ast_arena_.emplace(AstNode::NumericForStat{std::move(vars), std::move(range), body},
+		return ast_arena_.emplace(AstNode::NumericForStat{std::move(vars), std::move(range), body, token_end},
 								  token_for);
 	}
 	AstNode* MakeGenericForStat(std::vector<Token*>&& vars, std::vector<AstNode*>&& gens,
-								AstNode* body, Token* token_for)
+								AstNode* body, Token* token_for, Token* token_end)
 	{
-		return ast_arena_.emplace(AstNode::GenericForStat{std::move(vars), std::move(gens), body},
+		return ast_arena_.emplace(AstNode::GenericForStat{std::move(vars), std::move(gens), body, token_end},
 								  token_for);
 	}
-	AstNode* MakeRepeatStat(AstNode* body, AstNode* cond, Token* token_repeat)
+	AstNode* MakeRepeatStat(AstNode* body, AstNode* cond, Token* token_repeat, Token* token_until)
 	{
-		return ast_arena_.emplace(AstNode::RepeatStat{body, cond}, token_repeat);
+		return ast_arena_.emplace(AstNode::RepeatStat{body, token_until, cond}, token_repeat);
 	}
 	AstNode* MakeLocalFunctionStat(AstNode* func_stat, Token* token_local)
 	{

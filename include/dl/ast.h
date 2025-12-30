@@ -1,6 +1,6 @@
 #pragma once
+
 #include "dl/token.h"
-#include <memory>
 #include <vector>
 namespace dl {
 enum class AstNodeType
@@ -17,13 +17,33 @@ enum class AstNodeType
 	MethodExpr,
 	IndexExpr,
 	CallExpr,
+
+	// Literal Types Begin
 	NumberLiteral,
 	StringLiteral,
 	NilLiteral,
 	BooleanLiteral,
 	VargLiteral,
-	// UnopExpr,
-	BinopExpr,
+	// Literal Types End
+
+	// BinopExpr Types Begin
+	AddExpr,
+	SubExpr,
+	MulExpr,
+	DivExpr,
+	PowExpr,
+	ModExpr,
+	ConcatExpr,
+	EqExpr,
+	NeqExpr,
+	LtExpr,
+	LeExpr,
+	GtExpr,
+	GeExpr,
+	AndExpr,
+	OrExpr,
+	// BinopExpr Types End
+
 	CallExprStat,
 	AssignmentStat,
 	IfStat,
@@ -39,891 +59,753 @@ enum class AstNodeType
 	StatList,
 	GotoStat,
 	LabelStat,
-	// UnopExpr types
+
+	// UnopExpr Types Begin
 	NotExpr,
 	NegativeExpr,
 	LengthExpr,
+	// UnopExpr Types End
 };
-
 class AstNode
 {
 public:
-	virtual ~AstNode()                                 = default;
-	virtual Token*      GetFirstToken() const noexcept = 0;
-	virtual Token*      GetLastToken() const noexcept  = 0;
-	virtual AstNodeType GetType() const noexcept       = 0;
-};
-
-/**
- * @brief 括号表达式
- *
- */
-class ParenExpr : public AstNode
-{
-public:
-	ParenExpr(std::unique_ptr<AstNode> expression, Token* token_open_paren,
-			  Token* token_close_paren)
-		: expression_(std::move(expression))
-		, token_open_paren_(token_open_paren)
-		, token_close_paren_(token_close_paren)
-	{}
-	~ParenExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_open_paren_; }
-	Token*      GetLastToken() const noexcept override { return token_close_paren_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::ParenExpr; }
-
-	std::unique_ptr<AstNode> expression_;
-	Token*                   token_open_paren_;
-	Token*                   token_close_paren_;
-};
-
-/**
- * @brief 变量表达式
- *
- */
-class VariableExpr : public AstNode
-{
-public:
-	VariableExpr(Token* token)
-		: token_(token)
-	{}
-	~VariableExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_; }
-	Token*      GetLastToken() const noexcept override { return token_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::VariableExpr; }
-
-	Token* token_;
-};
-
-enum class TableEntryType
-{
-	Index,
-	Field,
-	Value
-};
-
-class TableEntry
-{
-public:
-	virtual ~TableEntry()                           = default;
-	virtual TableEntryType GetType() const noexcept = 0;
-};
-
-/**
- * @brief 表索引项
- *
- */
-class IndexEntry : public TableEntry
-{
-public:
-	IndexEntry(std::unique_ptr<AstNode> index, std::unique_ptr<AstNode> value,
-			   Token* token_open_bracket, Token* token_close_bracket, Token* token_equals)
-		: index_(std::move(index))
-		, value_(std::move(value))
-		, token_open_bracket_(token_open_bracket)
-		, token_close_bracket_(token_close_bracket)
-		, token_equals_(token_equals)
-	{}
-	~IndexEntry() override = default;
-	TableEntryType GetType() const noexcept override { return TableEntryType::Index; }
-
-	std::unique_ptr<AstNode> index_;                 // 索引表达式
-	std::unique_ptr<AstNode> value_;                 // 值表达式
-	Token*                   token_open_bracket_;    // '['
-	Token*                   token_close_bracket_;   // ']'
-	Token*                   token_equals_;          // '='
-};
-
-class FieldEntry : public TableEntry
-{
-public:
-	FieldEntry(Token* token_field, std::unique_ptr<AstNode> value, Token* token_equals)
-		: field_(token_field)
-		, value_(std::move(value))
-		, token_equals_(token_equals)
-	{}
-	~FieldEntry() override = default;
-	TableEntryType GetType() const noexcept override { return TableEntryType::Field; }
-
-	Token*                   field_;          // 字段名
-	std::unique_ptr<AstNode> value_;          // 值表达式
-	Token*                   token_equals_;   // '='
-};
-
-class ValueEntry : public TableEntry
-{
-public:
-	ValueEntry(std::unique_ptr<AstNode> value)
-		: value_(std::move(value))
-	{}
-	~ValueEntry() override = default;
-	TableEntryType GetType() const noexcept override { return TableEntryType::Value; }
-
-	std::unique_ptr<AstNode> value_;   // 值表达式
-};
-
-
-/**
- * @brief 表字面量
- *
- */
-class TableLiteral : public AstNode
-{
-public:
-	TableLiteral(std::vector<std::unique_ptr<TableEntry>> entry_list,
-				 std::vector<Token*> token_seperator_list, Token* token_open_brace,
-				 Token* token_close_brace)
-		: entry_list_(std::move(entry_list))
-		, token_separator_list_(std::move(token_seperator_list))
-		, token_open_brace_(token_open_brace)
-		, token_close_brace_(token_close_brace)
-	{}
-
-	~TableLiteral() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_open_brace_; }
-	Token*      GetLastToken() const noexcept override { return token_close_brace_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::TableLiteral; }
-
-	std::vector<std::unique_ptr<TableEntry>> entry_list_;
-	std::vector<Token*>                      token_separator_list_;
-	Token*                                   token_open_brace_;
-	Token*                                   token_close_brace_;
-};
-
-class FunctionLiteral : public AstNode
-{
-public:
-	FunctionLiteral(std::vector<Token*> arg_list, std::unique_ptr<AstNode> body,
-					Token* token_function, Token* token_open_paren,
-					std::vector<Token*> token_arg_comma_list, Token* token_close_paren,
-					Token* token_end)
-		: arg_list_(std::move(arg_list))
-		, body_(std::move(body))
-		, token_function_(token_function)
-		, token_open_paren_(token_open_paren)
-		, token_arg_comma_list_(std::move(token_arg_comma_list))
-		, token_close_paren_(token_close_paren)
-		, token_end_(token_end)
-	{}
-	~FunctionLiteral() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_function_; }
-	Token*      GetLastToken() const noexcept override { return token_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::FunctionLiteral; }
-
-	std::vector<Token*>      arg_list_;
-	std::unique_ptr<AstNode> body_;
-	Token*                   token_function_;
-	Token*                   token_open_paren_;
-	std::vector<Token*>      token_arg_comma_list_;
-	Token*                   token_close_paren_;
-	Token*                   token_end_;
-};
-
-
-class FunctionStat : public AstNode
-{
-public:
-	FunctionStat(std::vector<Token*> name_chain, std::vector<Token*> arg_list,
-				 std::unique_ptr<AstNode> body, Token* token_function,
-				 std::vector<Token*> token_name_chain_separator, Token* token_open_paren,
-				 std::vector<Token*> token_arg_comma_list, Token* token_close_paren,
-				 Token* token_end)
-		: name_chain_(std::move(name_chain))
-		, arg_list_(std::move(arg_list))
-		, body_(std::move(body))
-		, token_function_(token_function)
-		, token_name_chain_separator_(std::move(token_name_chain_separator))
-		, token_open_paren_(token_open_paren)
-		, token_arg_comma_list_(std::move(token_arg_comma_list))
-		, token_close_paren_(token_close_paren)
-		, token_end_(token_end)
-	{}
-	~FunctionStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_function_; }
-	Token*      GetLastToken() const noexcept override { return token_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::FunctionStat; }
-
-	std::vector<Token*>      name_chain_;
-	std::vector<Token*>      arg_list_;
-	std::unique_ptr<AstNode> body_;
-	Token*                   token_function_;
-	std::vector<Token*>      token_name_chain_separator_;
-	Token*                   token_open_paren_;
-	std::vector<Token*>      token_arg_comma_list_;
-	Token*                   token_close_paren_;
-	Token*                   token_end_;
-};
-
-class ArgCall : public AstNode
-{
-public:
-	ArgCall(std::vector<std::unique_ptr<AstNode>> arg_list, std::vector<Token*> token_comma_list,
-			Token* token_open_paren, Token* token_close_paren)
-		: arg_list_(std::move(arg_list))
-		, token_comma_list_(std::move(token_comma_list))
-		, token_open_paren_(token_open_paren)
-		, token_close_paren_(token_close_paren)
-	{}
-	~ArgCall() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_open_paren_; }
-	Token*      GetLastToken() const noexcept override { return token_close_paren_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::ArgCall; }
-
-	std::vector<std::unique_ptr<AstNode>> arg_list_;
-	std::vector<Token*>                   token_comma_list_;
-	Token*                                token_open_paren_;
-	Token*                                token_close_paren_;
-};
-
-class TableCall : public AstNode
-{
-public:
-	TableCall(std::unique_ptr<AstNode> table_expr)
-		: table_expr_(std::move(table_expr))
-	{}
-	~TableCall() override = default;
-	Token*      GetFirstToken() const noexcept override { return table_expr_->GetFirstToken(); }
-	Token*      GetLastToken() const noexcept override { return table_expr_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::TableCall; }
-
-	std::unique_ptr<AstNode> table_expr_;
-};
-
-class StringCall : public AstNode
-{
-public:
-	StringCall(Token* token)
-		: token_(token)
-	{}
-	~StringCall() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_; }
-	Token*      GetLastToken() const noexcept override { return token_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::StringCall; }
-
-	Token* token_;
-};
-
-class FieldExpr : public AstNode
-{
-public:
-	FieldExpr(std::unique_ptr<AstNode> base, Token* field, Token* token_dot)
-		: base_(std::move(base))
-		, field_(field)
-		, token_dot_(token_dot)
-	{}
-	~FieldExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return base_->GetFirstToken(); }
-	Token*      GetLastToken() const noexcept override { return field_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::FieldExpr; }
-
-	std::unique_ptr<AstNode> base_;
-	Token*                   field_;
-	Token*                   token_dot_;
-};
-
-class MethodExpr : public AstNode
-{
-public:
-	MethodExpr(std::unique_ptr<AstNode> base, Token* method,
-			   std::unique_ptr<AstNode> function_arguments, Token* token_colon)
-		: base_(std::move(base))
-		, method_(method)
-		, function_arguments_(std::move(function_arguments))
-		, token_colon_(token_colon)
-	{}
-	~MethodExpr() override = default;
-	Token* GetFirstToken() const noexcept override { return base_->GetFirstToken(); }
-	Token* GetLastToken() const noexcept override { return function_arguments_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::MethodExpr; }
-
-	std::unique_ptr<AstNode> base_;
-	Token*                   method_;
-	std::unique_ptr<AstNode> function_arguments_;
-	Token*                   token_colon_;
-};
-
-
-class IndexExpr : public AstNode
-{
-public:
-	IndexExpr(std::unique_ptr<AstNode> base, std::unique_ptr<AstNode> index,
-			  Token* token_open_bracket, Token* token_close_bracket)
-		: base_(std::move(base))
-		, index_(std::move(index))
-		, token_open_bracket_(token_open_bracket)
-		, token_close_bracket_(token_close_bracket)
-	{}
-	~IndexExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return base_->GetFirstToken(); }
-	Token*      GetLastToken() const noexcept override { return token_close_bracket_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::IndexExpr; }
-
-	std::unique_ptr<AstNode> base_;
-	std::unique_ptr<AstNode> index_;
-	Token*                   token_open_bracket_;
-	Token*                   token_close_bracket_;
-};
-
-class CallExpr : public AstNode
-{
-public:
-	CallExpr(std::unique_ptr<AstNode> base, std::unique_ptr<AstNode> function_arguments)
-		: base_(std::move(base))
-		, function_arguments_(std::move(function_arguments))
-	{}
-	~CallExpr() override = default;
-	Token* GetFirstToken() const noexcept override { return base_->GetFirstToken(); }
-	Token* GetLastToken() const noexcept override { return function_arguments_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::CallExpr; }
-
-	std::unique_ptr<AstNode> base_;
-	std::unique_ptr<AstNode> function_arguments_;
-};
-
-class NumberLiteral : public AstNode
-{
-public:
-	NumberLiteral(Token* token)
-		: token_(token)
-	{}
-	~NumberLiteral() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_; }
-	Token*      GetLastToken() const noexcept override { return token_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::NumberLiteral; }
-
-	Token* token_;
-};
-
-class StringLiteral : public AstNode
-{
-public:
-	StringLiteral(Token* token)
-		: token_(token)
-	{}
-	~StringLiteral() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_; }
-	Token*      GetLastToken() const noexcept override { return token_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::StringLiteral; }
-
-	Token* token_;
-};
-
-class NilLiteral : public AstNode
-{
-public:
-	NilLiteral(Token* token)
-		: token_(token)
-	{}
-	~NilLiteral() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_; }
-	Token*      GetLastToken() const noexcept override { return token_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::NilLiteral; }
-
-	Token* token_;
-};
-
-class BooleanLiteral : public AstNode
-{
-public:
-	BooleanLiteral(Token* token)
-		: token_(token)
-	{}
-	~BooleanLiteral() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_; }
-	Token*      GetLastToken() const noexcept override { return token_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::BooleanLiteral; }
-
-	Token* token_;
-};
-
-class VargLiteral : public AstNode
-{
-public:
-	VargLiteral(Token* token)
-		: token_(token)
-	{}
-	~VargLiteral() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_; }
-	Token*      GetLastToken() const noexcept override { return token_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::VargLiteral; }
-
-	Token* token_;
-};
-
-// class UnopExpr : public AstNode
-// {
-// public:
-//     UnopExpr(Token* token_op, std::unique_ptr<AstNode> rhs)
-//         : token_op_(token_op)
-//         , rhs_(std::move(rhs))
-//     {}
-//     ~UnopExpr() override = default;
-//     Token*      GetFirstToken() const noexcept override { return token_op_; }
-//     Token*      GetLastToken() const noexcept override { return rhs_->GetLastToken(); }
-//     AstNodeType GetType() const noexcept override { return AstNodeType::UnopExpr; }
-
-//     Token*                   token_op_;
-//     std::unique_ptr<AstNode> rhs_;
-// };
-
-class NotExpr : public AstNode
-{
-public:
-	NotExpr(Token* token_op, std::unique_ptr<AstNode> rhs)
-		: token_op_(token_op)
-		, rhs_(std::move(rhs))
-	{}
-	~NotExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_op_; }
-	Token*      GetLastToken() const noexcept override { return rhs_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::NotExpr; }
-
-	Token*                   token_op_;
-	std::unique_ptr<AstNode> rhs_;
-};
-
-class NegativeExpr : public AstNode
-{
-public:
-	NegativeExpr(Token* token_op, std::unique_ptr<AstNode> rhs)
-		: token_op_(token_op)
-		, rhs_(std::move(rhs))
-	{}
-	~NegativeExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_op_; }
-	Token*      GetLastToken() const noexcept override { return rhs_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::NegativeExpr; }
-
-	Token*                   token_op_;
-	std::unique_ptr<AstNode> rhs_;
-};
-
-class LengthExpr : public AstNode
-{
-public:
-	LengthExpr(Token* token_op, std::unique_ptr<AstNode> rhs)
-		: token_op_(token_op)
-		, rhs_(std::move(rhs))
-	{}
-	~LengthExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_op_; }
-	Token*      GetLastToken() const noexcept override { return rhs_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::LengthExpr; }
-
-	Token*                   token_op_;
-	std::unique_ptr<AstNode> rhs_;
-};
-
-
-class BinopExpr : public AstNode
-{
-public:
-	BinopExpr(std::unique_ptr<AstNode> lhs, Token* token_op, std::unique_ptr<AstNode> rhs)
-		: lhs_(std::move(lhs))
-		, rhs_(std::move(rhs))
-		, token_op_(token_op)
-	{}
-	~BinopExpr() override = default;
-	Token*      GetFirstToken() const noexcept override { return lhs_->GetFirstToken(); }
-	Token*      GetLastToken() const noexcept override { return rhs_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::BinopExpr; }
-
-	std::unique_ptr<AstNode> lhs_;
-	std::unique_ptr<AstNode> rhs_;
-	Token*                   token_op_;
-};
-
-class CallExprStat : public AstNode
-{
-public:
-	CallExprStat(std::unique_ptr<AstNode> expression)
-		: expression_(std::move(expression))
-	{}
-	~CallExprStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return expression_->GetFirstToken(); }
-	Token*      GetLastToken() const noexcept override { return expression_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::CallExprStat; }
-
-	std::unique_ptr<AstNode> expression_;
-};
-
-class AssignmentStat : public AstNode
-{
-public:
-	AssignmentStat(std::vector<std::unique_ptr<AstNode>> lhs,
-				   std::vector<std::unique_ptr<AstNode>> rhs, Token* token_equals,
-				   std::vector<Token*> token_lhs_separator_list,
-				   std::vector<Token*> token_rhs_separator_list)
-		: lhs_(std::move(lhs))
-		, rhs_(std::move(rhs))
-		, token_equals_(token_equals)
-		, token_lhs_separator_list_(std::move(token_lhs_separator_list))
-		, token_rhs_separator_list_(std::move(token_rhs_separator_list))
-	{}
-	~AssignmentStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return lhs_.front()->GetFirstToken(); }
-	Token*      GetLastToken() const noexcept override { return rhs_.back()->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::AssignmentStat; }
-
-	std::vector<std::unique_ptr<AstNode>> lhs_;
-	std::vector<std::unique_ptr<AstNode>> rhs_;
-	Token*                                token_equals_;
-	std::vector<Token*>                   token_lhs_separator_list_;
-	std::vector<Token*>                   token_rhs_separator_list_;
-};
-
-class GeneralElseClause
-{
-public:
-	virtual ~GeneralElseClause()                     = default;
-	virtual AstNode*         GetCondition() noexcept = 0;
-	virtual Token*           GetTokenThen() noexcept = 0;
-	std::unique_ptr<AstNode> body_;
-	Token*                   token_;
-};
-
-class ElseIfClause : public GeneralElseClause
-{
-public:
-	ElseIfClause(std::unique_ptr<AstNode> condition, std::unique_ptr<AstNode> body,
-				 Token* token_elseif, Token* token_then)
-		: condition_(std::move(condition))
-		, token_then_(token_then)
+	/**
+	 * @brief Parenthesized Expression
+	 *
+	 */
+	struct ParenExpr
 	{
-		body_  = std::move(body);
-		token_ = token_elseif;
-	}
-	~ElseIfClause() override = default;
-	AstNode* GetCondition() noexcept override { return condition_.get(); }
-	Token*   GetTokenThen() noexcept override { return token_then_; }
+		AstNode* expression_;
+	};
 
-	std::unique_ptr<AstNode> condition_;
-	// std::unique_ptr<AstNode> body_;
-	// Token*                   token_;
-	Token* token_then_;
-};
-
-class ElseClause : public GeneralElseClause
-{
-public:
-	ElseClause(std::unique_ptr<AstNode> body, Token* token_else)
+	struct VariableExpr
 	{
-		body_  = std::move(body);
-		token_ = token_else;
-	}
-	~ElseClause() override = default;
-	AstNode* GetCondition() noexcept override { return nullptr; }
-	Token*   GetTokenThen() noexcept override { return nullptr; }
-
-	// std::unique_ptr<AstNode> body_;
-	// Token*                   token_;
-};
-
-class IfStat : public AstNode
-{
-public:
-	IfStat(std::unique_ptr<AstNode> condition, std::unique_ptr<AstNode> body,
-		   std::vector<std::unique_ptr<GeneralElseClause>> else_clause_list, Token* token_if,
-		   Token* token_then, Token* token_end)
-		: condition_(std::move(condition))
-		, body_(std::move(body))
-		, else_clause_list_(std::move(else_clause_list))
-		, token_if_(token_if)
-		, token_then_(token_then)
-		, token_end_(token_end)
-	{}
-	~IfStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_if_; }
-	Token*      GetLastToken() const noexcept override { return token_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::IfStat; }
-
-	std::unique_ptr<AstNode>                        condition_;
-	std::unique_ptr<AstNode>                        body_;
-	std::vector<std::unique_ptr<GeneralElseClause>> else_clause_list_;
-	Token*                                          token_if_;
-	Token*                                          token_then_;
-	Token*                                          token_end_;
-};
-
-class DoStat : public AstNode
-{
-public:
-	DoStat(Token* token_do, Token* token_end, std::unique_ptr<AstNode> body)
-		: token_do_(token_do)
-		, token_end_(token_end)
-		, body_(std::move(body))
-	{}
-	~DoStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_do_; }
-	Token*      GetLastToken() const noexcept override { return token_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::DoStat; }
-
-	Token*                   token_do_;
-	Token*                   token_end_;
-	std::unique_ptr<AstNode> body_;
-};
-
-class WhileStat : public AstNode
-{
-public:
-	WhileStat(std::unique_ptr<AstNode> condition, std::unique_ptr<AstNode> body, Token* token_while,
-			  Token* token_do, Token* token_end)
-		: condition_(std::move(condition))
-		, body_(std::move(body))
-		, token_while_(token_while)
-		, token_do_(token_do)
-		, token_end_(token_end)
-	{}
-	~WhileStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_while_; }
-	Token*      GetLastToken() const noexcept override { return token_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::WhileStat; }
-
-	std::unique_ptr<AstNode> condition_;
-	std::unique_ptr<AstNode> body_;
-	Token*                   token_while_;
-	Token*                   token_do_;
-	Token*                   token_end_;
-};
-
-class NumericForStat : public AstNode
-{
-public:
-	NumericForStat(std::vector<Token*> var_list, std::vector<std::unique_ptr<AstNode>> range_list,
-				   std::unique_ptr<AstNode> body, Token* token_for,
-				   std::vector<Token*> token_var_comma_list, Token* token_equals,
-				   std::vector<Token*> token_range_separator_list, Token* token_do,
-				   Token* token_end)
-		: var_list_(std::move(var_list))
-		, range_list_(std::move(range_list))
-		, body_(std::move(body))
-		, token_for_(token_for)
-		, token_var_comma_list_(std::move(token_var_comma_list))
-		, token_equals_(token_equals)
-		, token_range_comma_list_(std::move(token_range_separator_list))
-		, token_do_(token_do)
-		, token_end_(token_end)
-	{}
-	~NumericForStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_for_; }
-	Token*      GetLastToken() const noexcept override { return token_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::NumericForStat; }
-
-	std::vector<Token*>                   var_list_;
-	std::vector<std::unique_ptr<AstNode>> range_list_;
-	std::unique_ptr<AstNode>              body_;
-	Token*                                token_for_;
-	std::vector<Token*>                   token_var_comma_list_;
-	Token*                                token_equals_;
-	std::vector<Token*>                   token_range_comma_list_;
-	Token*                                token_do_;
-	Token*                                token_end_;
-};
-
-class GenericForStat : public AstNode
-{
-public:
-	GenericForStat(std::vector<Token*>                   var_list,
-				   std::vector<std::unique_ptr<AstNode>> iterator_list,
-				   std::unique_ptr<AstNode> body, Token* token_for,
-				   std::vector<Token*> token_var_comma_list, Token* token_in,
-				   std::vector<Token*> token_generator_comma_list, Token* token_do,
-				   Token* token_end)
-		: var_list_(std::move(var_list))
-		, generator_list_(std::move(iterator_list))
-		, body_(std::move(body))
-		, token_for_(token_for)
-		, token_var_comma_list_(std::move(token_var_comma_list))
-		, token_in_(token_in)
-		, token_generator_comma_list_(std::move(token_generator_comma_list))
-		, token_do_(token_do)
-		, token_end_(token_end)
-	{}
-	~GenericForStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_for_; }
-	Token*      GetLastToken() const noexcept override { return token_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::GenericForStat; }
-
-	std::vector<Token*>                   var_list_;
-	std::vector<std::unique_ptr<AstNode>> generator_list_;
-	std::unique_ptr<AstNode>              body_;
-	Token*                                token_for_;
-	std::vector<Token*>                   token_var_comma_list_;
-	Token*                                token_in_;
-	std::vector<Token*>                   token_generator_comma_list_;
-	Token*                                token_do_;
-	Token*                                token_end_;
-};
-
-class RepeatStat : public AstNode
-{
-public:
-	RepeatStat(std::unique_ptr<AstNode> body, std::unique_ptr<AstNode> condition,
-			   Token* token_repeat, Token* token_until)
-		: body_(std::move(body))
-		, condition_(std::move(condition))
-		, token_repeat_(token_repeat)
-		, token_until_(token_until)
-	{}
-	~RepeatStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_repeat_; }
-	Token*      GetLastToken() const noexcept override { return condition_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::RepeatStat; }
-
-	std::unique_ptr<AstNode> body_;
-	std::unique_ptr<AstNode> condition_;
-	Token*                   token_repeat_;
-	Token*                   token_until_;
-};
-
-class LocalFunctionStat : public AstNode
-{
-public:
-	LocalFunctionStat(std::unique_ptr<AstNode> function_stat, Token* token_local)
-		: function_stat_(std::move(function_stat))
-		, token_local_(token_local)
-	{}
-	~LocalFunctionStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_local_; }
-	Token*      GetLastToken() const noexcept override { return function_stat_->GetLastToken(); }
-	AstNodeType GetType() const noexcept override { return AstNodeType::LocalFunctionStat; }
-
-	std::unique_ptr<AstNode> function_stat_;
-	Token*                   token_local_;
-};
-
-class LocalVarStat : public AstNode
-{
-public:
-	LocalVarStat(std::vector<Token*> var_list, std::vector<std::unique_ptr<AstNode>> expr_list,
-				 Token* token_local, Token* token_equals, std::vector<Token*> token_var_comma_list,
-				 std::vector<Token*> expr_comma_list)
-		: var_list_(std::move(var_list))
-		, expr_list_(std::move(expr_list))
-		, token_local_(token_local)
-		, token_equals_(token_equals)
-		, token_var_comma_list_(std::move(token_var_comma_list))
-		, token_expr_comma_list_(std::move(expr_comma_list))
-	{}
-	~LocalVarStat() override = default;
-	Token* GetFirstToken() const noexcept override { return token_local_; }
-    // Seems never use
-	Token* GetLastToken() const noexcept override
+		Token* token_;
+	};
+	enum class TableEntryType
 	{
-		if (!expr_list_.empty()) {
-			return expr_list_.back()->GetLastToken();
+		Index,
+		Field,
+		Value
+	};
+
+	struct TableEntry
+	{
+		struct IndexEntry
+		{
+			AstNode* index_;
+			AstNode* value_;
+		};
+
+		struct FieldEntry
+		{
+			Token*   field_;
+			AstNode* value_;
+		};
+
+		struct ValueEntry
+		{
+			AstNode* value_;
+		};
+		union
+		{
+			IndexEntry index_entry_;
+			FieldEntry field_entry_;
+			ValueEntry value_entry_;
+		};
+		TableEntryType type_;
+		TableEntry(IndexEntry&& v)
+			: type_(TableEntryType::Index)
+		{
+			new (&index_entry_) IndexEntry(std::move(v));
 		}
-		return var_list_.back();
-	}
-	AstNodeType GetType() const noexcept override { return AstNodeType::LocalVarStat; }
-
-	std::vector<Token*>                   var_list_;
-	std::vector<std::unique_ptr<AstNode>> expr_list_;
-	Token*                                token_local_;
-	Token*                                token_equals_;   // can be nullptr!
-	std::vector<Token*>                   token_var_comma_list_;
-	std::vector<Token*>                   token_expr_comma_list_;
-};
-
-class ReturnStat : public AstNode
-{
-public:
-	ReturnStat(std::vector<std::unique_ptr<AstNode>> expr_list, Token* token_return,
-			   std::vector<Token*> token_comma_list)
-		: expr_list_(std::move(expr_list))
-		, token_return_(token_return)
-		, token_comma_list_(std::move(token_comma_list))
-	{}
-	~ReturnStat() override = default;
-	Token* GetFirstToken() const noexcept override { return token_return_; }
-	Token* GetLastToken() const noexcept override
-	{
-		if (!expr_list_.empty()) {
-			return expr_list_.back()->GetLastToken();
+		TableEntry(FieldEntry&& v)
+			: type_(TableEntryType::Field)
+		{
+			new (&field_entry_) FieldEntry(std::move(v));
 		}
-		return token_return_;
-	}
-	AstNodeType GetType() const noexcept override { return AstNodeType::ReturnStat; }
-
-	std::vector<std::unique_ptr<AstNode>> expr_list_;
-	Token*                                token_return_;
-	std::vector<Token*>                   token_comma_list_;
-};
-
-class BreakStat : public AstNode
-{
-public:
-	BreakStat(Token* token_break)
-		: token_break_(token_break)
-	{}
-	~BreakStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_break_; }
-	Token*      GetLastToken() const noexcept override { return token_break_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::BreakStat; }
-
-	Token* token_break_;
-};
-
-class StatList : public AstNode
-{
-public:
-	StatList(std::vector<std::unique_ptr<AstNode>> statement_list,
-			 std::vector<Token*>                   semicolon_list)
-		: statement_list(std::move(statement_list))
-		, semicolon_list(std::move(semicolon_list))
-	{}
-	~StatList() override = default;
-	Token* GetFirstToken() const noexcept override
-	{
-		if (!statement_list.empty()) {
-			return statement_list.front()->GetFirstToken();
+		TableEntry(ValueEntry&& v)
+			: type_(TableEntryType::Value)
+		{
+			new (&value_entry_) ValueEntry(std::move(v));
 		}
-		return nullptr;
-	}
-	Token* GetLastToken() const noexcept override
+	};
+
+	struct TableLiteral
 	{
-		if (!statement_list.empty()) {
-			return statement_list.back()->GetLastToken();
-		}
-		return nullptr;
+		std::vector<TableEntry> entry_list_;
+	};
+
+	struct FunctionLiteral
+	{
+		std::vector<Token*> arg_list_;
+		AstNode*            body_;
+		Token*              end_token_;
+	};
+
+	struct FunctionStat
+	{
+		std::vector<Token*> name_chain_;
+		std::vector<Token*> arg_list_;
+		AstNode*            body_;
+		Token*              end_token_;
+	};
+
+	struct ArgCall
+	{
+		std::vector<AstNode*> arg_list_;
+	};
+
+	struct TableCall
+	{
+		AstNode* table_expr_;
+	};
+
+	struct StringCall
+	{};
+
+	struct FieldExpr
+	{
+		AstNode* base_;
+		Token*   field_;
+	};
+
+	struct MethodExpr
+	{
+		AstNode* base_;
+		Token*   method_;
+		AstNode* function_arguments_;
+	};
+
+	struct IndexExpr
+	{
+		AstNode* base_;
+		AstNode* index_;
+	};
+
+	struct CallExpr
+	{
+		AstNode* base_;
+		AstNode* function_arguments_;
+	};
+
+	struct NumberLiteral
+	{};
+
+	struct StringLiteral
+	{};
+
+	struct NilLiteral
+	{};
+
+	struct BooleanLiteral
+	{};
+
+	struct VargLiteral
+	{};
+
+	struct NotExpr
+	{
+		AstNode* rhs_;
+	};
+
+	struct NegativeExpr
+	{
+		AstNode* rhs_;
+	};
+
+	struct LengthExpr
+	{
+		AstNode* rhs_;
+	};
+
+	struct AddExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct SubExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct MulExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct DivExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct PowExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct ModExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct ConcatExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct EqExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct NeqExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct LtExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct LeExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct GtExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct GeExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct AndExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct OrExpr
+	{
+		AstNode* lhs_;
+		AstNode* rhs_;
+	};
+
+	struct CallExprStat
+	{
+		AstNode* expression_;
+	};
+
+	struct AssignmentStat
+	{
+		std::vector<AstNode*> lhs_;
+		std::vector<AstNode*> rhs_;
+	};
+	enum class ElseClauseType
+	{
+		ElseIfClause,
+		ElseClause
+	};
+	struct IfStat
+	{
+		struct ElseClause
+		{};
+		struct ElseIfClause
+		{
+			AstNode* condition_;
+		};
+		struct GeneralElseClause
+		{
+			union
+			{
+				ElseIfClause else_if_clause_;
+				ElseClause   else_clause_;
+			};
+			Token*         else_token_;
+			AstNode*       body_;
+			ElseClauseType type_;
+			GeneralElseClause(ElseIfClause&& v, AstNode* body, Token* else_token)
+                : else_token_(else_token)
+				, body_(body)
+				, type_(ElseClauseType::ElseIfClause)
+			{
+				new (&else_if_clause_) ElseIfClause(std::move(v));
+			}
+			GeneralElseClause(ElseClause&& v, AstNode* body, Token* else_token)
+                : else_token_(else_token)
+				, body_(body)
+				, type_(ElseClauseType::ElseClause)
+			{
+				new (&else_clause_) ElseClause(std::move(v));
+			}
+		};
+		AstNode*                       condition_;
+		AstNode*                       body_;
+		std::vector<GeneralElseClause> else_clauses_;
+		Token*                         end_token_;
+	};
+
+	struct DoStat
+	{
+		AstNode* body_;
+        Token* end_token_;
+	};
+
+	struct WhileStat
+	{
+		AstNode* condition_;
+		AstNode* body_;
+        Token* end_token_;
+	};
+
+	struct NumericForStat
+	{
+		std::vector<Token*>   var_list_;
+		std::vector<AstNode*> range_list_;
+		AstNode*              body_;
+        Token* end_token_;
+	};
+
+	struct GenericForStat
+	{
+		std::vector<Token*>   var_list_;
+		std::vector<AstNode*> generator_list_;
+		AstNode*              body_;
+        Token* end_token_;
+	};
+
+	struct RepeatStat
+	{
+		AstNode* body_;
+        Token* until_token_;
+		AstNode* condition_;
+	};
+
+	struct LocalFunctionStat
+	{
+		AstNode* function_stat_;
+	};
+
+	struct LocalVarStat
+	{
+		std::vector<Token*>   var_list_;
+		std::vector<AstNode*> expr_list_;
+	};
+
+	struct ReturnStat
+	{
+		std::vector<AstNode*> expr_list_;
+	};
+
+	struct BreakStat
+	{};
+	struct StatList
+	{
+		std::vector<AstNode*> statement_list_;
+	};
+
+	struct GotoStat
+	{
+		Token* label_;
+	};
+
+	struct LabelStat
+	{
+		Token* label_;
+	};
+
+public:
+	union
+	{
+		ParenExpr         paren_expr_;
+		VariableExpr      variable_expr_;
+		TableLiteral      table_literal_;
+		FunctionLiteral   function_literal_;
+		FunctionStat      function_stat_;
+		ArgCall           arg_call_;
+		TableCall         table_call_;
+		StringCall        string_call_;
+		FieldExpr         field_expr_;
+		MethodExpr        method_expr_;
+		IndexExpr         index_expr_;
+		CallExpr          call_expr_;
+		NumberLiteral     number_literal_;
+		StringLiteral     string_literal_;
+		NilLiteral        nil_literal_;
+		BooleanLiteral    boolean_literal_;
+		VargLiteral       varg_literal_;
+		NotExpr           not_expr_;
+		NegativeExpr      negative_expr_;
+		LengthExpr        length_expr_;
+		AddExpr           add_expr_;
+		SubExpr           sub_expr_;
+		MulExpr           mul_expr_;
+		DivExpr           div_expr_;
+		PowExpr           pow_expr_;
+		ModExpr           mod_expr_;
+		ConcatExpr        concat_expr_;
+		EqExpr            eq_expr_;
+		NeqExpr           neq_expr_;
+		LtExpr            lt_expr_;
+		LeExpr            le_expr_;
+		GtExpr            gt_expr_;
+		GeExpr            ge_expr_;
+		AndExpr           and_expr_;
+		OrExpr            or_expr_;
+		CallExprStat      call_expr_stat_;
+		AssignmentStat    assignment_stat_;
+		IfStat            if_stat_;
+		DoStat            do_stat_;
+		WhileStat         while_stat_;
+		NumericForStat    numeric_for_stat_;
+		GenericForStat    generic_for_stat_;
+		RepeatStat        repeat_stat_;
+		LocalFunctionStat local_function_stat_;
+		LocalVarStat      local_var_stat_;
+		ReturnStat        return_stat_;
+		BreakStat         break_stat_;
+		StatList          stat_list_;
+		GotoStat          goto_stat_;
+		LabelStat         label_stat_;
+	};
+	Token*      first_token_;
+	AstNodeType type_;
+	AstNode(ParenExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::ParenExpr)
+	{
+		new (&paren_expr_) ParenExpr(std::move(v));
 	}
-	AstNodeType GetType() const noexcept override { return AstNodeType::StatList; }
+	AstNode(VariableExpr&& v)
+		: first_token_(v.token_)
+		, type_(AstNodeType::VariableExpr)
+	{
+		new (&variable_expr_) VariableExpr(std::move(v));
+	}
+	AstNode(TableLiteral&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::TableLiteral)
+	{
+		new (&table_literal_) TableLiteral(std::move(v));
+	}
+	AstNode(FunctionLiteral&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::FunctionLiteral)
+	{
+		new (&function_literal_) FunctionLiteral(std::move(v));
+	}
+	AstNode(FunctionStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::FunctionStat)
+	{
+		new (&function_stat_) FunctionStat(std::move(v));
+	}
+	AstNode(ArgCall&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::ArgCall)
+	{
+		new (&arg_call_) ArgCall(std::move(v));
+	}
+	AstNode(TableCall&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::TableCall)
+	{
+		new (&table_call_) TableCall(std::move(v));
+	}
+	AstNode(StringCall&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::StringCall)
+	{
+		new (&string_call_) StringCall(std::move(v));
+	}
+	AstNode(FieldExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::FieldExpr)
+	{
+		new (&field_expr_) FieldExpr(std::move(v));
+	}
+	AstNode(MethodExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::MethodExpr)
+	{
+		new (&method_expr_) MethodExpr(std::move(v));
+	}
+	AstNode(IndexExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::IndexExpr)
+	{
+		new (&index_expr_) IndexExpr(std::move(v));
+	}
+	AstNode(CallExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::CallExpr)
+	{
+		new (&call_expr_) CallExpr(std::move(v));
+	}
+	AstNode(NumberLiteral&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::NumberLiteral)
+	{
+		new (&number_literal_) NumberLiteral(std::move(v));
+	}
+	AstNode(StringLiteral&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::StringLiteral)
+	{
+		new (&string_literal_) StringLiteral(std::move(v));
+	}
+	AstNode(NilLiteral&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::NilLiteral)
+	{
+		new (&nil_literal_) NilLiteral(std::move(v));
+	}
+	AstNode(BooleanLiteral&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::BooleanLiteral)
+	{
+		new (&boolean_literal_) BooleanLiteral(std::move(v));
+	}
+	AstNode(VargLiteral&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::VargLiteral)
+	{
+		new (&varg_literal_) VargLiteral(std::move(v));
+	}
+	AstNode(NotExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::NotExpr)
+	{
+		new (&not_expr_) NotExpr(std::move(v));
+	}
+	AstNode(NegativeExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::NegativeExpr)
+	{
+		new (&negative_expr_) NegativeExpr(std::move(v));
+	}
+	AstNode(LengthExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::LengthExpr)
+	{
+		new (&length_expr_) LengthExpr(std::move(v));
+	}
+	AstNode(AddExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::AddExpr)
+	{
+		new (&add_expr_) AddExpr(std::move(v));
+	}
+	AstNode(SubExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::SubExpr)
+	{
+		new (&sub_expr_) SubExpr(std::move(v));
+	}
+	AstNode(MulExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::MulExpr)
+	{
+		new (&mul_expr_) MulExpr(std::move(v));
+	}
+	AstNode(DivExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::DivExpr)
+	{
+		new (&div_expr_) DivExpr(std::move(v));
+	}
+	AstNode(PowExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::PowExpr)
+	{
+		new (&pow_expr_) PowExpr(std::move(v));
+	}
+	AstNode(ModExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::ModExpr)
+	{
+		new (&mod_expr_) ModExpr(std::move(v));
+	}
+	AstNode(ConcatExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::ConcatExpr)
+	{
+		new (&concat_expr_) ConcatExpr(std::move(v));
+	}
+	AstNode(EqExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::EqExpr)
+	{
+		new (&eq_expr_) EqExpr(std::move(v));
+	}
+	AstNode(NeqExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::NeqExpr)
+	{
+		new (&neq_expr_) NeqExpr(std::move(v));
+	}
+	AstNode(LtExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::LtExpr)
+	{
+		new (&lt_expr_) LtExpr(std::move(v));
+	}
+	AstNode(LeExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::LeExpr)
+	{
+		new (&le_expr_) LeExpr(std::move(v));
+	}
+	AstNode(GtExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::GtExpr)
+	{
+		new (&gt_expr_) GtExpr(std::move(v));
+	}
+	AstNode(GeExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::GeExpr)
+	{
+		new (&ge_expr_) GeExpr(std::move(v));
+	}
+	AstNode(AndExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::AndExpr)
+	{
+		new (&and_expr_) AndExpr(std::move(v));
+	}
+	AstNode(OrExpr&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::OrExpr)
+	{
+		new (&or_expr_) OrExpr(std::move(v));
+	}
+	AstNode(CallExprStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::CallExprStat)
+	{
+		new (&call_expr_stat_) CallExprStat(std::move(v));
+	}
+	AstNode(AssignmentStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::AssignmentStat)
+	{
+		new (&assignment_stat_) AssignmentStat(std::move(v));
+	}
+	AstNode(IfStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::IfStat)
+	{
+		new (&if_stat_) IfStat(std::move(v));
+	}
+	AstNode(DoStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::DoStat)
+	{
+		new (&do_stat_) DoStat(std::move(v));
+	}
+	AstNode(WhileStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::WhileStat)
+	{
+		new (&while_stat_) WhileStat(std::move(v));
+	}
+	AstNode(NumericForStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::NumericForStat)
+	{
+		new (&numeric_for_stat_) NumericForStat(std::move(v));
+	}
+	AstNode(GenericForStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::GenericForStat)
+	{
+		new (&generic_for_stat_) GenericForStat(std::move(v));
+	}
+	AstNode(RepeatStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::RepeatStat)
+	{
+		new (&repeat_stat_) RepeatStat(std::move(v));
+	}
+	AstNode(LocalFunctionStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::LocalFunctionStat)
+	{
+		new (&local_function_stat_) LocalFunctionStat(std::move(v));
+	}
+	AstNode(LocalVarStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::LocalVarStat)
+	{
+		new (&local_var_stat_) LocalVarStat(std::move(v));
+	}
+	AstNode(ReturnStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::ReturnStat)
+	{
+		new (&return_stat_) ReturnStat(std::move(v));
+	}
+	AstNode(BreakStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::BreakStat)
+	{
+		new (&break_stat_) BreakStat(std::move(v));
+	}
+	AstNode(StatList&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::StatList)
+	{
+		new (&stat_list_) StatList(std::move(v));
+	}
+	AstNode(GotoStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::GotoStat)
+	{
+		new (&goto_stat_) GotoStat(std::move(v));
+	}
+	AstNode(LabelStat&& v, Token* tok)
+		: first_token_(tok)
+		, type_(AstNodeType::LabelStat)
+	{
+		new (&label_stat_) LabelStat(std::move(v));
+	}
 
-	std::vector<std::unique_ptr<AstNode>> statement_list;
-	std::vector<Token*>                   semicolon_list;
+	~AstNode()
+	{
+		switch (type_) {
+		case AstNodeType::TableLiteral: table_literal_.~TableLiteral(); break;
+		case AstNodeType::FunctionLiteral: function_literal_.~FunctionLiteral(); break;
+		case AstNodeType::FunctionStat: function_stat_.~FunctionStat(); break;
+		case AstNodeType::ArgCall: arg_call_.~ArgCall(); break;
+		case AstNodeType::AssignmentStat: assignment_stat_.~AssignmentStat(); break;
+		case AstNodeType::IfStat: if_stat_.~IfStat(); break;
+		case AstNodeType::NumericForStat: numeric_for_stat_.~NumericForStat(); break;
+		case AstNodeType::GenericForStat: generic_for_stat_.~GenericForStat(); break;
+		case AstNodeType::LocalVarStat: local_var_stat_.~LocalVarStat(); break;
+		case AstNodeType::ReturnStat: return_stat_.~ReturnStat(); break;
+		case AstNodeType::StatList: stat_list_.~StatList(); break;
+		default: break;
+		}
+	}
 };
 
-class GotoStat : public AstNode
-{
-public:
-	GotoStat(Token* token_goto, Token* token_label)
-		: token_goto_(token_goto)
-		, token_label_(token_label)
-	{}
-	~GotoStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_goto_; }
-	Token*      GetLastToken() const noexcept override { return token_label_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::GotoStat; }
-
-	Token* token_goto_;
-	Token* token_label_;
-};
-
-class LabelStat : public AstNode
-{
-public:
-	LabelStat(Token* token_label_start, Token* token_label, Token* token_label_end)
-		: token_label_start_(token_label_start)
-		, token_label_(token_label)
-		, token_label_end_(token_label_end)
-	{}
-	~LabelStat() override = default;
-	Token*      GetFirstToken() const noexcept override { return token_label_start_; }
-	Token*      GetLastToken() const noexcept override { return token_label_end_; }
-	AstNodeType GetType() const noexcept override { return AstNodeType::LabelStat; }
-
-	Token* token_label_start_;
-	Token* token_label_;
-	Token* token_label_end_;
-};
 }   // namespace dl

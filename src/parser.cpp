@@ -1,16 +1,32 @@
 #include "dl/parser.h"
+#include "dl/ast.h"
 #include "dl/token.h"
 #include <cstddef>
 #include <cstdio>
 #include <fmt/format.h>
 #include <magic_enum/magic_enum.hpp>
-#include <memory>
 #include <spdlog/spdlog.h>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 using namespace dl;
+
+void Parser::step() noexcept
+{
+	if (position_ < tokens_.size() - 1) {
+		++position_;
+	}
+	else {
+		reached_eof_ = true;
+	}
+}
+
+void Parser::step_trust_me() noexcept
+{
+	++position_;
+}
 
 Token* Parser::get() noexcept
 {
@@ -62,11 +78,41 @@ Token* Parser::expect(TokenType type)
 	throw std::runtime_error("Unexpected token");
 }
 
+void Parser::expect_and_drop(TokenType type)
+{
+	const auto& token = peek();
+	if (token->type_ == type) {
+		step();
+		return;
+	}
+	SPDLOG_ERROR("Expected token of type {}, but got {} at {}",
+				 magic_enum::enum_name(type),
+				 magic_enum::enum_name(token->type_),
+				 get_token_start_position(token));
+	throw std::runtime_error("Unexpected token");
+}
+
 Token* Parser::expect(TokenType type, const std::string_view value)
 {
 	const auto& token = peek();
 	if (token->type_ == type && token->source_ == value) {
 		return get();
+	}
+	SPDLOG_ERROR("Expected token of type {} with value '{}', but got {} with value '{}' at {}",
+				 magic_enum::enum_name(type),
+				 value,
+				 magic_enum::enum_name(token->type_),
+				 token->source_,
+				 get_token_start_position(token));
+	throw std::runtime_error("Unexpected token");
+}
+
+void Parser::expect_and_drop(TokenType type, const std::string_view value)
+{
+	const auto& token = peek();
+	if (token->type_ == type && token->source_ == value) {
+		step();
+		return;
 	}
 	SPDLOG_ERROR("Expected token of type {} with value '{}', but got {} with value '{}' at {}",
 				 magic_enum::enum_name(type),
@@ -85,8 +131,7 @@ void Parser::error(const std::string_view message)
 	throw std::runtime_error("Parsing error");
 }
 
-void Parser::exprlist(std::vector<std::unique_ptr<AstNode>>& expr_list,
-					  std::vector<Token*>&                   comma_list)
+void Parser::exprlist(std::vector<AstNode*>& expr_list, std::vector<Token*>& comma_list)
 {
 	expr_list.push_back(expr());
 	while (peek()->source_ == ",") {
@@ -95,51 +140,46 @@ void Parser::exprlist(std::vector<std::unique_ptr<AstNode>>& expr_list,
 	}
 }
 
-std::unique_ptr<AstNode> Parser::prefixexpr()
+AstNode* Parser::prefixexpr()
 {
 	Token* token = peek();
 	if (token->source_ == "(") {
-		Token*                   open_paren  = get();
-		std::unique_ptr<AstNode> inner       = expr();
-		Token*                   close_paren = expect(TokenType::Symbol, ")");
-		return std::make_unique<ParenExpr>(std::move(inner), open_paren, close_paren);
+		Token*   open_paren = get();
+		AstNode* inner      = expr();
+		expect_and_drop(TokenType::Symbol, ")");
+		return ast_manager_.MakeParenExpr(std::move(inner), open_paren);
 	}
 
 	if (token->type_ == TokenType::Identifier) {
-		return std::make_unique<VariableExpr>(get());
+		return ast_manager_.MakeVariableExpr(get());
 	}
 	error("Unexpected symbol in prefix expression");
 }
 
-std::unique_ptr<AstNode> Parser::tableexpr()
+AstNode* Parser::tableexpr()
 {
-	Token*                                   open_brace = expect(TokenType::Symbol, "{");
-	std::vector<std::unique_ptr<TableEntry>> entries;
-	std::vector<Token*>                      seperators;
+	Token*                           open_brace = expect(TokenType::Symbol, "{");
+	std::vector<AstNode::TableEntry> entries;
+	std::vector<Token*>              seperators;
 
 	while (peek()->source_ != "}") {
 		if (peek()->source_ == "[") {
-			auto open_bracket  = get();
-			auto index_expr    = expr();
-			auto close_bracket = expect(TokenType::Symbol, "]");
-			auto equal_token   = expect(TokenType::Symbol, "=");
-			auto value_expr    = expr();
-			entries.emplace_back(std::make_unique<IndexEntry>(std::move(index_expr),
-															  std::move(value_expr),
-															  open_bracket,
-															  close_bracket,
-															  equal_token));
+			step();
+			auto index_expr = expr();
+			expect_and_drop(TokenType::Symbol, "]");
+			expect_and_drop(TokenType::Symbol, "=");
+			auto value_expr = expr();
+			entries.emplace_back(AstNode::TableEntry::IndexEntry{index_expr, value_expr});
 		}
 		else if (peek()->type_ == TokenType::Identifier && peek(1)->source_ == "=") {
-			auto field       = get();
-			auto equal_token = get();
-			auto value_expr  = expr();
-			entries.emplace_back(
-				std::make_unique<FieldEntry>(field, std::move(value_expr), equal_token));
+			auto field = get();
+			step();
+			auto value_expr = expr();
+			entries.emplace_back(AstNode::TableEntry::FieldEntry{field, value_expr});
 		}
 		else {
 			auto value_expr = expr();
-			entries.emplace_back(std::make_unique<ValueEntry>(std::move(value_expr)));
+			entries.emplace_back(AstNode::TableEntry::ValueEntry{value_expr});
 		}
 
 		if (peek()->source_ == "," || peek()->source_ == ";") {
@@ -149,9 +189,8 @@ std::unique_ptr<AstNode> Parser::tableexpr()
 			break;
 		}
 	}
-	Token* close_brace = expect(TokenType::Symbol, "}");
-	return std::make_unique<TableLiteral>(
-		std::move(entries), std::move(seperators), open_brace, close_brace);
+	expect_and_drop(TokenType::Symbol, "}");
+	return ast_manager_.MakeTableLiteral(std::move(entries), open_brace);
 }
 
 void Parser::varlist(std::vector<Token*>& var_list, std::vector<Token*>& comma_list)
@@ -166,12 +205,12 @@ void Parser::varlist(std::vector<Token*>& var_list, std::vector<Token*>& comma_l
 	}
 }
 
-void Parser::blockbody(std::string_view terminator, std::unique_ptr<AstNode>& body, Token*& after)
+void Parser::blockbody(std::string_view terminator, AstNode*& body, Token*& after)
 {
 	auto _body  = block();
 	auto _after = peek();
 	if (_after->type_ == TokenType::Keyword && _after->source_ == terminator) {
-		get();
+		step();
 		body  = std::move(_body);
 		after = _after;
 		return;
@@ -180,27 +219,22 @@ void Parser::blockbody(std::string_view terminator, std::unique_ptr<AstNode>& bo
 	error(fmt::format("Expected '{}' to close block", terminator).c_str());
 }
 
-std::unique_ptr<AstNode> Parser::funcdecl_anonymous()
+AstNode* Parser::funcdecl_anonymous()
 {
-	auto                function_keyword = get();
-	auto                open_paren       = expect(TokenType::Symbol, "(");
+	auto function_keyword = get();
+	expect_and_drop(TokenType::Symbol, "(");
 	std::vector<Token*> arg_list;
 	std::vector<Token*> comma_list;
 	varlist(arg_list, comma_list);
-	auto                     close_paren = expect(TokenType::Symbol, ")");
-	std::unique_ptr<AstNode> body;
-	Token*                   end_token;
+	expect_and_drop(TokenType::Symbol, ")");
+	AstNode* body;
+	Token*   end_token;
 	blockbody("end", body, end_token);
-	return std::make_unique<FunctionLiteral>(std::move(arg_list),
-											 std::move(body),
-											 function_keyword,
-											 open_paren,
-											 std::move(comma_list),
-											 close_paren,
-											 end_token);
+
+	return ast_manager_.MakeFunctionLiteral(std::move(arg_list), body, function_keyword, end_token);
 }
 
-std::unique_ptr<FunctionStat> Parser::funcdecl_named()
+AstNode* Parser::funcdecl_named()
 {
 	auto                function_keyword = get();
 	std::vector<Token*> name_chain;
@@ -214,32 +248,25 @@ std::unique_ptr<FunctionStat> Parser::funcdecl_named()
 		name_chain_separator.push_back(get());
 		name_chain.push_back(expect(TokenType::Identifier));
 	}
-	auto                open_paren = expect(TokenType::Symbol, "(");
+	expect_and_drop(TokenType::Symbol, "(");
 	std::vector<Token*> arg_list;
 	std::vector<Token*> comma_list;
 	varlist(arg_list, comma_list);
-	auto                     close_paren = expect(TokenType::Symbol, ")");
-	std::unique_ptr<AstNode> body;
-	Token*                   end_token;
+	expect_and_drop(TokenType::Symbol, ")");
+	AstNode* body;
+	Token*   end_token;
 	blockbody("end", body, end_token);
-	return std::make_unique<FunctionStat>(std::move(name_chain),
-										  std::move(arg_list),
-										  std::move(body),
-										  function_keyword,
-										  std::move(name_chain_separator),
-										  open_paren,
-										  std::move(comma_list),
-										  close_paren,
-										  end_token);
+	return ast_manager_.MakeFunctionStat(
+		std::move(name_chain), std::move(arg_list), body, function_keyword, end_token);
 }
 
-std::unique_ptr<AstNode> Parser::functionargs()
+AstNode* Parser::functionargs()
 {
 	Token* token = peek();
 	if (token->source_ == "(") {
-		auto                                  open_paren = get();
-		std::vector<std::unique_ptr<AstNode>> arg_list;
-		std::vector<Token*>                   comma_list;
+		auto                  open_paren = get();
+		std::vector<AstNode*> arg_list;
+		std::vector<Token*>   comma_list;
 		while (peek()->source_ != ")") {
 			arg_list.push_back(expr());
 			if (peek()->source_ == ",") {
@@ -249,48 +276,48 @@ std::unique_ptr<AstNode> Parser::functionargs()
 				break;
 			}
 		}
-		auto close_paren = expect(TokenType::Symbol, ")");
-		return std::make_unique<ArgCall>(
-			std::move(arg_list), std::move(comma_list), open_paren, close_paren);
+		expect_and_drop(TokenType::Symbol, ")");
+
+		return ast_manager_.MakeArgCall(std::move(arg_list), open_paren);
 	}
 
 	if (token->source_ == "{") {
-		return std::make_unique<TableCall>(expr());
+		// return std::make_unique<TableCall>(expr());
+		return ast_manager_.MakeTableCall(expr());
 	}
 
 	if (token->type_ == TokenType::String) {
-		return std::make_unique<StringCall>(get());
+		// return std::make_unique<StringCall>(get());
+		return ast_manager_.MakeStringCall(get());
 	}
 	error("Function arguments expected");
 }
 
-std::unique_ptr<AstNode> Parser::primaryexpr()
+AstNode* Parser::primaryexpr()
 {
-	std::unique_ptr<AstNode> base = prefixexpr();
+	AstNode* base = prefixexpr();
 	while (true) {
 		Token* token = peek();
 		if (token->source_ == ".") {
-			auto dot_token = get();
-			auto field     = expect(TokenType::Identifier);
-			base           = std::make_unique<FieldExpr>(std::move(base), field, dot_token);
+			step();
+			auto field = expect(TokenType::Identifier);
+			base       = ast_manager_.MakeFieldExpr(base, field);
 		}
 		else if (token->source_ == ":") {
-			auto colon_token = get();
-			auto method      = expect(TokenType::Identifier);
-			auto func_args   = functionargs();
-			base             = std::make_unique<MethodExpr>(
-                std::move(base), method, std::move(func_args), colon_token);
+			step();
+			auto method    = expect(TokenType::Identifier);
+			auto func_args = functionargs();
+			base = ast_manager_.MakeMethodExpr(base, method, func_args);
 		}
 		else if (token->source_ == "{" || token->source_ == "(" ||
 				 token->type_ == TokenType::String) {
-			base = std::make_unique<CallExpr>(std::move(base), functionargs());
+			base = ast_manager_.MakeCallExpr(base, functionargs());
 		}
 		else if (token->source_ == "[") {
-			auto open_bracket  = get();
+            step();
 			auto index_expr    = expr();
-			auto close_bracket = expect(TokenType::Symbol, "]");
-			base               = std::make_unique<IndexExpr>(
-                std::move(base), std::move(index_expr), open_bracket, close_bracket);
+			expect_and_drop(TokenType::Symbol, "]");
+			base = ast_manager_.MakeIndexExpr(base, index_expr);
 		}
 		else {
 			break;
@@ -299,28 +326,28 @@ std::unique_ptr<AstNode> Parser::primaryexpr()
 	return base;
 }
 
-std::unique_ptr<AstNode> Parser::simpleexpr()
+AstNode* Parser::simpleexpr()
 {
 	Token* token = peek();
 
 	if (token->type_ == TokenType::Number) {
-		return std::make_unique<NumberLiteral>(get());
+		return ast_manager_.MakeNumberLiteral(get());
 	}
 
 	if (token->type_ == TokenType::String) {
-		return std::make_unique<StringLiteral>(get());
+		return ast_manager_.MakeStringLiteral(get());
 	}
 
 	if (token->source_ == "nil") {
-		return std::make_unique<NilLiteral>(get());
+		return ast_manager_.MakeNilLiteral(get());
 	}
 
 	if (token->source_ == "true" || token->source_ == "false") {
-		return std::make_unique<BooleanLiteral>(get());
+		return ast_manager_.MakeBooleanLiteral(get());
 	}
 
 	if (token->source_ == "...") {
-		return std::make_unique<VargLiteral>(get());
+		return ast_manager_.MakeVargLiteral(get());
 	}
 
 	if (token->source_ == "{") {
@@ -334,7 +361,7 @@ std::unique_ptr<AstNode> Parser::simpleexpr()
 	return primaryexpr();
 }
 
-std::unique_ptr<AstNode> Parser::subexpr(const size_t priority_limit)
+AstNode* Parser::subexpr(const size_t priority_limit)
 {
 	const static std::unordered_map<std::string_view, size_t> binop_priority_1 = {{"+", 6},
 																				  {"-", 6},
@@ -366,207 +393,257 @@ std::unique_ptr<AstNode> Parser::subexpr(const size_t priority_limit)
 																				  {"<=", 3},
 																				  {"and", 2},
 																				  {"or", 1}};
-	std::unique_ptr<AstNode>                                  current_node;
+	AstNode*                                                  current_node;
 	const auto&                                               op = peek()->source_;
 	if (op == "not") {
 		auto operator_token = get();
 		auto ex             = subexpr(UNARY_PRIORITY);
-		current_node        = std::make_unique<NotExpr>(operator_token, std::move(ex));
+		// current_node        = std::make_unique<NotExpr>(operator_token, std::move(ex));
+		current_node = ast_manager_.MakeNotExpr(ex, operator_token);
 	}
 	else if (op == "-") {
 		auto operator_token = get();
 		auto ex             = subexpr(UNARY_PRIORITY);
-		current_node        = std::make_unique<NegativeExpr>(operator_token, std::move(ex));
+		// current_node        = std::make_unique<NegativeExpr>(operator_token, std::move(ex));
+		current_node = ast_manager_.MakeNegativeExpr(ex, operator_token);
 	}
 	else if (op == "#") {
 		auto operator_token = get();
 		auto ex             = subexpr(UNARY_PRIORITY);
-		current_node        = std::make_unique<LengthExpr>(operator_token, std::move(ex));
+		// current_node        = std::make_unique<LengthExpr>(operator_token, std::move(ex));
+		current_node = ast_manager_.MakeLengthExpr(ex, operator_token);
 	}
 	else {
 		current_node = simpleexpr();
 	}
 
-	while (is_binop() && binop_priority_1.at(peek()->source_) > priority_limit) {
-		auto operator_token = get();
-		auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
-		current_node =
-			std::make_unique<BinopExpr>(std::move(current_node), operator_token, std::move(rhs));
+	while (true) {
+		const auto& next_op = peek()->source_;
+		if (next_op == "+" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeAddExpr(current_node, rhs);
+		}
+		else if (next_op == "-" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeSubExpr(current_node, rhs);
+		}
+		else if (next_op == "*" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeMulExpr(current_node, rhs);
+		}
+		else if (next_op == "/" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeDivExpr(current_node, rhs);
+		}
+		else if (next_op == "%" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeModExpr(current_node, rhs);
+		}
+		else if (next_op == "^" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakePowExpr(current_node, rhs);
+		}
+		else if (next_op == ".." && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeConcatExpr(current_node, rhs);
+		}
+		else if (next_op == "==" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeEqExpr(current_node, rhs);
+		}
+		else if (next_op == "~=" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeNeqExpr(current_node, rhs);
+		}
+		else if (next_op == ">" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeGtExpr(current_node, rhs);
+		}
+		else if (next_op == "<" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeLtExpr(current_node, rhs);
+		}
+		else if (next_op == ">=" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeGeExpr(current_node, rhs);
+		}
+		else if (next_op == "<=" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeLeExpr(current_node, rhs);
+		}
+		else if (next_op == "and" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeAndExpr(current_node, rhs);
+		}
+		else if (next_op == "or" && binop_priority_1.at(next_op) > priority_limit) {
+			auto operator_token = get();
+			auto rhs            = subexpr(binop_priority_2.at(operator_token->source_));
+			current_node        = ast_manager_.MakeOrExpr(current_node, rhs);
+		}
+		else {
+			break;
+		}
 	}
+
 	return current_node;
 }
 
-inline std::unique_ptr<AstNode> Parser::expr()
+inline AstNode* Parser::expr()
 {
 	return subexpr(0);
 }
 
-std::unique_ptr<AstNode> Parser::exprstat()
+AstNode* Parser::exprstat()
 {
 	auto ex = primaryexpr();
 
-	if (ex->GetType() == AstNodeType::MethodExpr || ex->GetType() == AstNodeType::CallExpr) {
-		return std::make_unique<CallExprStat>(std::move(ex));
+	if (ex->type_ == AstNodeType::MethodExpr || ex->type_ == AstNodeType::CallExpr) {
+		return ast_manager_.MakeCallExprStat(ex);
 	}
 
-	std::vector<std::unique_ptr<AstNode>> lhs;
-	lhs.push_back(std::move(ex));
+	std::vector<AstNode*> lhs;
+	lhs.push_back(ex);
 	std::vector<Token*> lhs_separator;
 	while (peek()->source_ == ",") {
 		lhs_separator.push_back(get());
 		auto lhs_expr = primaryexpr();
-		if (lhs_expr->GetType() == AstNodeType::MethodExpr ||
-			lhs_expr->GetType() == AstNodeType::CallExpr) {
+		if (lhs_expr->type_ == AstNodeType::MethodExpr ||
+			lhs_expr->type_ == AstNodeType::CallExpr) {
 			error("Bad left-hand side in assignment");
 		}
-		lhs.push_back(std::move(lhs_expr));
+		lhs.push_back(lhs_expr);
 	}
-	auto                                  assign_token = expect(TokenType::Symbol, "=");
-	std::vector<std::unique_ptr<AstNode>> rhs;
+	expect_and_drop(TokenType::Symbol, "=");
+	std::vector<AstNode*> rhs;
 	rhs.push_back(expr());
 	std::vector<Token*> rhs_separator;
 	while (peek()->source_ == ",") {
 		rhs_separator.push_back(get());
 		rhs.push_back(expr());
 	}
-
-	return std::make_unique<AssignmentStat>(std::move(lhs),
-											std::move(rhs),
-											assign_token,
-											std::move(lhs_separator),
-											std::move(rhs_separator));
+	return ast_manager_.MakeAssignmentStat(std::move(lhs), std::move(rhs));
 }
 
-std::unique_ptr<AstNode> Parser::ifstat()
+AstNode* Parser::ifstat()
 {
-	auto                                            if_token   = get();
-	auto                                            condition  = expr();
-	auto                                            then_token = expect(TokenType::Keyword, "then");
-	auto                                            if_body    = block();
-	std::vector<std::unique_ptr<GeneralElseClause>> else_clauses;
+	auto if_token   = get();
+	auto condition  = expr();
+	expect_and_drop(TokenType::Keyword, "then");
+	auto if_body    = block();
+	std::vector<AstNode::IfStat::GeneralElseClause> else_clauses;
 	while (peek()->source_ == "elseif" || peek()->source_ == "else") {
 		auto else_if_token = get();
 		if (else_if_token->source_ == "elseif") {
 			auto else_if_condition  = expr();
-			auto else_if_then_token = expect(TokenType::Keyword, "then");
+			expect_and_drop(TokenType::Keyword, "then");
 			auto else_if_body       = block();
-			else_clauses.emplace_back(std::make_unique<ElseIfClause>(std::move(else_if_condition),
-																	 std::move(else_if_body),
-																	 else_if_token,
-																	 else_if_then_token));
+			else_clauses.emplace_back(
+				AstNode::IfStat::ElseIfClause{else_if_condition}, else_if_body, else_if_token);
 		}
 		else {
 			auto else_body = block();
-			else_clauses.emplace_back(
-				std::make_unique<ElseClause>(std::move(else_body), else_if_token));
-			// no more clauses after else
+			else_clauses.emplace_back(AstNode::IfStat::ElseClause{}, else_body, else_if_token);
 			break;
 		}
 	}
 
 	auto end_token = expect(TokenType::Keyword, "end");
-	return std::make_unique<IfStat>(std::move(condition),
-									std::move(if_body),
-									std::move(else_clauses),
-									if_token,
-									then_token,
-									end_token);
+	return ast_manager_.MakeIfStat(
+		condition, if_body, std::move(else_clauses), if_token, end_token);
 }
 
-std::unique_ptr<AstNode> Parser::dostat()
+AstNode* Parser::dostat()
 {
-	auto                     do_token = get();
-	std::unique_ptr<AstNode> body;
-	Token*                   end_token;
+	auto     do_token = get();
+	AstNode* body;
+	Token*   end_token;
 	blockbody("end", body, end_token);
-	return std::make_unique<DoStat>(do_token, end_token, std::move(body));
+	return ast_manager_.MakeDoStat(body, do_token, end_token);
 }
 
-std::unique_ptr<AstNode> Parser::whilestat()
+AstNode* Parser::whilestat()
 {
-	auto                     while_token = get();
-	auto                     condition   = expr();
-	auto                     do_token    = expect(TokenType::Keyword, "do");
-	std::unique_ptr<AstNode> body;
-	Token*                   end_token;
+	auto     while_token = get();
+	auto     condition   = expr();
+    expect_and_drop(TokenType::Keyword, "do");
+	AstNode* body;
+	Token*   end_token;
 	blockbody("end", body, end_token);
-	return std::make_unique<WhileStat>(
-		std::move(condition), std::move(body), while_token, do_token, end_token);
+	return ast_manager_.MakeWhileStat(condition, body, while_token, end_token);
 }
 
-std::unique_ptr<AstNode> Parser::forstat()
+AstNode* Parser::forstat()
 {
 	auto                for_token = get();
 	std::vector<Token*> loop_vars;
 	std::vector<Token*> loop_var_commas;
 	varlist(loop_vars, loop_var_commas);
 	if (peek()->source_ == "=") {
-		auto                                  assign_token = get();
-		std::vector<std::unique_ptr<AstNode>> loop_expr_list;
-		std::vector<Token*>                   loop_expr_commas;
+		step();
+		std::vector<AstNode*> loop_expr_list;
+		std::vector<Token*>   loop_expr_commas;
 		exprlist(loop_expr_list, loop_expr_commas);
 		if (loop_expr_list.size() > 3 || loop_expr_list.size() < 2) {
 			error("Numeric for loop must have 2 or 3 values for range bounds");
 		}
-		auto                     do_token = expect(TokenType::Keyword, "do");
-		std::unique_ptr<AstNode> body;
-		Token*                   end_token;
+		expect_and_drop(TokenType::Keyword, "do");
+		AstNode* body;
+		Token*   end_token;
 		blockbody("end", body, end_token);
-		return std::make_unique<NumericForStat>(std::move(loop_vars),
-												std::move(loop_expr_list),
-												std::move(body),
-												for_token,
-												std::move(loop_var_commas),
-												assign_token,
-												std::move(loop_expr_commas),
-												do_token,
-												end_token);
+		return ast_manager_.MakeNumericForStat(
+			std::move(loop_vars), std::move(loop_expr_list), body, for_token, end_token);
 	}
 
 	if (peek()->source_ == "in") {
-		auto                                  in_token = get();
-		std::vector<std::unique_ptr<AstNode>> loop_expr_list;
-		std::vector<Token*>                   loop_expr_commas;
+        step();
+		std::vector<AstNode*> loop_expr_list;
+		std::vector<Token*>   loop_expr_commas;
 		exprlist(loop_expr_list, loop_expr_commas);
-		auto                     do_token = expect(TokenType::Keyword, "do");
-		std::unique_ptr<AstNode> body;
-		Token*                   end_token;
+		expect_and_drop(TokenType::Keyword, "do");
+		AstNode* body;
+		Token*   end_token;
 		blockbody("end", body, end_token);
-		return std::make_unique<GenericForStat>(std::move(loop_vars),
-												std::move(loop_expr_list),
-												std::move(body),
-												for_token,
-												std::move(loop_var_commas),
-												in_token,
-												std::move(loop_expr_commas),
-												do_token,
-												end_token);
+		return ast_manager_.MakeGenericForStat(
+			std::move(loop_vars), std::move(loop_expr_list), body, for_token, end_token);
 	}
 
 	error("Expected '=' or 'in' in for statement");
 }
 
-std::unique_ptr<AstNode> Parser::repeatstat()
+AstNode* Parser::repeatstat()
 {
-	auto                     repeat_token = get();
-	std::unique_ptr<AstNode> body;
-	Token*                   until_token;
+	auto     repeat_token = get();
+	AstNode* body;
+	Token*   until_token;
 	blockbody("until", body, until_token);
 	auto condition = expr();
-	return std::make_unique<RepeatStat>(
-		std::move(body), std::move(condition), repeat_token, until_token);
+	return ast_manager_.MakeRepeatStat(body, condition, repeat_token, until_token);
 }
 
-std::unique_ptr<AstNode> Parser::localdecl()
+AstNode* Parser::localdecl()
 {
 	auto local_token = get();
 
 	if (peek()->source_ == "function") {
 		auto function_stat = funcdecl_named();
-		if (function_stat->name_chain_.size() > 1) {
+		if (function_stat->function_stat_.name_chain_.size() > 1) {
 			error("Invalid function name in local function declaration");
 		}
-		return std::make_unique<LocalFunctionStat>(std::move(function_stat), local_token);
+		return ast_manager_.MakeLocalFunctionStat(function_stat, local_token);
 	}
 
 	if (peek()->type_ == TokenType::Identifier) {
@@ -574,57 +651,52 @@ std::unique_ptr<AstNode> Parser::localdecl()
 		std::vector<Token*> comma_list;
 		varlist(var_list, comma_list);
 
-		Token*                                assign_token = nullptr;
-		std::vector<std::unique_ptr<AstNode>> expr_list;
-		std::vector<Token*>                   expr_comma_list;
+		std::vector<AstNode*> expr_list;
+		std::vector<Token*>   expr_comma_list;
 		if (peek()->source_ == "=") {
-			assign_token = get();
+			step();
 			exprlist(expr_list, expr_comma_list);
 		}
-		return std::make_unique<LocalVarStat>(std::move(var_list),
-											  std::move(expr_list),
-											  local_token,
-											  assign_token,
-											  std::move(comma_list),
-											  std::move(expr_comma_list));
+		return ast_manager_.MakeLocalVarStat(
+			std::move(var_list), std::move(expr_list), local_token);
 	}
 
 	error("`function` or identifier expected after `local`");
 }
 
-std::unique_ptr<AstNode> Parser::retstat()
+AstNode* Parser::retstat()
 {
-	auto                                  return_token = get();
-	std::vector<std::unique_ptr<AstNode>> expr_list;
-	std::vector<Token*>                   comma_list;
+	auto                  return_token = get();
+	std::vector<AstNode*> expr_list;
+	std::vector<Token*>   comma_list;
 	if (!(is_block_follow() || peek()->source_ == ";")) {
 		exprlist(expr_list, comma_list);
 	}
-	return std::make_unique<ReturnStat>(std::move(expr_list), return_token, comma_list);
+	return ast_manager_.MakeReturnStat(std::move(expr_list), return_token);
 }
 
-std::unique_ptr<AstNode> Parser::breakstat()
+AstNode* Parser::breakstat()
 {
 	auto break_token = get();
-	return std::make_unique<BreakStat>(break_token);
+	return ast_manager_.MakeBreakStat(break_token);
 }
 
-std::unique_ptr<AstNode> Parser::gotostat()
+AstNode* Parser::gotostat()
 {
 	auto goto_token  = get();
 	auto label_token = expect(TokenType::Identifier);
-	return std::make_unique<GotoStat>(goto_token, label_token);
+	return ast_manager_.MakeGotoStat(label_token, goto_token);
 }
 
-std::unique_ptr<AstNode> Parser::labelstat()
+AstNode* Parser::labelstat()
 {
 	auto label_start_token = get();
 	auto label_name_token  = expect(TokenType::Identifier);
-	auto label_end_token   = expect(TokenType::Symbol, "::");
-	return std::make_unique<LabelStat>(label_start_token, label_name_token, label_end_token);
+    expect_and_drop(TokenType::Symbol, "::");
+	return ast_manager_.MakeLabelStat(label_name_token, label_start_token);
 }
 
-std::unique_ptr<AstNode> Parser::statement(bool& is_last)
+AstNode* Parser::statement(bool& is_last)
 {
 	Token* token = peek();
 	if (token->source_ == "::") {
@@ -675,18 +747,18 @@ std::unique_ptr<AstNode> Parser::statement(bool& is_last)
 	return exprstat();
 }
 
-std::unique_ptr<AstNode> Parser::block()
+AstNode* Parser::block()
 {
-	std::vector<std::unique_ptr<AstNode>> statements;
-	std::vector<Token*>                   semicolons;
-	bool                                  is_last = false;
+	std::vector<AstNode*> statements;
+	std::vector<Token*>   semicolons;
+	bool                  is_last = false;
 	while (!is_last && !is_block_follow()) {
 		statements.push_back(statement(is_last));
 		if (peek()->source_ == ";" && peek()->type_ == TokenType::Symbol) {
 			semicolons.push_back(get());
 		}
 	}
-	return std::make_unique<StatList>(std::move(statements), std::move(semicolons));
+	return ast_manager_.MakeStatList(std::move(statements));
 }
 
 Parser::Parser(std::vector<Token>& tokens, const std::string& file_name)
