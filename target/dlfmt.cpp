@@ -18,7 +18,7 @@
 #include <vector>
 using namespace dl;
 
-const std::string VERSION = "0.1.0";
+const std::string VERSION = "0.1.1";
 
 static void PrintHelp()
 {

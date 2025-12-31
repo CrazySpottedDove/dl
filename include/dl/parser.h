@@ -17,7 +17,8 @@ public:
 private:
 	// 获得当前位置的 token，并将位置后移一位
 	[[nodiscard]] Token* get() noexcept;
-	[[nodiscard]] Token* peek(size_t offset = 0) const noexcept;
+	[[nodiscard]] Token* peek(size_t offset) const noexcept;
+    [[nodiscard]] Token* peek() const noexcept;
 	void                 step() noexcept;
 	void                 step_trust_me() noexcept;
 	std::string          get_token_start_position(const Token* token) const noexcept;

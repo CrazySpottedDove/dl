@@ -30,7 +30,7 @@ void Parser::step_trust_me() noexcept
 
 Token* Parser::get() noexcept
 {
-	Token* token = &tokens_.at(position_);
+	Token* token = &tokens_[position_];
 	if (position_ < tokens_.size() - 1) {
 		++position_;
 	}
@@ -43,7 +43,12 @@ Token* Parser::get() noexcept
 Token* Parser::peek(size_t offset) const noexcept
 {
 	offset += position_;
-	return offset < tokens_.size() ? &tokens_.at(offset) : &tokens_.back();
+	return offset < tokens_.size() ? &tokens_[offset] : &tokens_.back();
+}
+
+Token* Parser::peek() const noexcept
+{
+	return &tokens_[position_];
 }
 
 std::string Parser::get_token_start_position(const Token* token) const noexcept
@@ -56,7 +61,7 @@ bool Parser::is_block_follow() const noexcept
 	if (reached_eof_) {
 		return true;
 	}
-	const Token* token = &tokens_.at(position_);
+	const Token* token = &tokens_[position_];
 	return token->type_ == TokenType::Keyword && is_block_follow_keyword(token->source_);
 }
 
