@@ -194,8 +194,8 @@ AstNode* Parser::tableexpr()
 			break;
 		}
 	}
-	expect_and_drop(TokenType::Symbol, "}");
-	return ast_manager_.MakeTableLiteral(std::move(entries), open_brace);
+    Token* token_close_brace = expect(TokenType::Symbol, "}");
+	return ast_manager_.MakeTableLiteral(std::move(entries), open_brace, token_close_brace);
 }
 
 void Parser::varlist(std::vector<Token*>& var_list, std::vector<Token*>& comma_list)

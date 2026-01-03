@@ -18,9 +18,9 @@ public:
 	}
 
 	// 复合结构
-	AstNode* MakeTableLiteral(std::vector<AstNode::TableEntry>&& entries, Token* token_open_brace)
+	AstNode* MakeTableLiteral(std::vector<AstNode::TableEntry>&& entries, Token* token_open_brace, Token* token_close_brace)
 	{
-		return ast_arena_.emplace(AstNode::TableLiteral{std::move(entries)}, token_open_brace);
+		return ast_arena_.emplace(AstNode::TableLiteral{std::move(entries), token_close_brace}, token_open_brace);
 	}
 	AstNode* MakeFunctionLiteral(std::vector<Token*>&& args, AstNode* body, Token* token_function, Token* token_end)
 	{

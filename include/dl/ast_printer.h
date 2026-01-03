@@ -357,17 +357,14 @@ private:
 						if (entry_type == AstNode::TableEntryType::Field) {
 							auto& field_entry = entry.field_entry_;
 							print_token(field_entry.field_);
-
 							append('=');
-
 							print_expr(field_entry.value_);
 						}
 						else if (entry_type == AstNode::TableEntryType::Index) {
 							auto& index_entry = entry.index_entry_;
 							append('[');
 							print_expr(index_entry.index_);
-							append(']');
-							append('=');
+							append("]=");
 							print_expr(index_entry.value_);
 						}
 						else if (entry_type == AstNode::TableEntryType::Value) {
@@ -443,7 +440,7 @@ private:
 					}
 				}
 			}
-			append('}');
+			print_token(node.end_token_);
 		}
 	}
 	void print_stat(const AstNode* stat) noexcept

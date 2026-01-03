@@ -134,6 +134,7 @@ public:
 	struct TableLiteral
 	{
 		std::vector<TableEntry> entry_list_;
+        Token* end_token_;
 	};
 
 	struct FunctionLiteral
