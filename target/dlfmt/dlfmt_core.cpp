@@ -14,17 +14,19 @@ static constexpr const char* VERSION = "0.1.2";
 using namespace dl;
 void ShowHelp()
 {
-	printf("Usage: dlfmt [options]\n");
-	printf("Options:\n");
-	printf("  --help                 Show this help message and exit\n");
-	printf("  --version              Show version information and exit\n");
-	printf("  --format-file <file>   Format the specified file\n");
-	printf("  --format-directory <dir> Format all files in the specified directory recursively\n");
-	printf("  --compress-file <file>   Compress the specified file\n");
-	printf(
-		"  --compress-directory <dir> Compress all files in the specified directory recursively\n");
-	printf("  --json-task <file>     Process tasks defined in the specified JSON file\n");
-	printf("  --param <parameter>    Specify additional parameters for formatting/compressing\n");
+	printf(R"(Usage: dlfmt [options]
+Options:
+  --help                     Show this help message and exit
+  --version                  Show version information and exit
+  --format-file <file>       Format the specified file
+  --format-directory <dir>   Format all files in the specified directory recursively
+  --compress-file <file>     Compress the specified file
+  --compress-directory <dir> Compress all files in the specified directory recursively
+  --json-task <file>         Process tasks defined in the specified JSON file
+  --param <parameter>        Specify additional parameters for formatting/compressing
+                             Available parameters for format: auto, manual
+  still mysterious? find more in https://crazyspotteddove.github.io/projects/dlfmt
+)");
 }
 
 void ShowVersion()
@@ -226,11 +228,11 @@ static bool ShouldProcessFile(const std::string&                                
 	// std::string     abspath = std::filesystem::absolute(path).string();
 	std::error_code ec;
 	// auto            mtime = std::filesystem::last_write_time(abspath, ec);
-    const auto mtime = std::filesystem::last_write_time(path, ec);
+	const auto mtime = std::filesystem::last_write_time(path, ec);
 	if (ec) return true;
 	const int64_t s_mtime = FileTimeTypeToTimeT(mtime);
 	// const auto    it      = file_cache.find(abspath);
-    const auto    it      = file_cache.find(path);
+	const auto it = file_cache.find(path);
 	if (it != file_cache.end() && it->second == s_mtime) {
 		return false;
 	}
@@ -290,28 +292,29 @@ void JsonTask(const std::string& json_file)
 			std::vector<std::filesystem::path> exclude;
 			if (task.contains("exclude")) {
 				for (const auto& ex : task["exclude"])
-					// exclude.push_back(std::filesystem::absolute(work_dir / ex.get<std::string>()));
-                exclude.push_back(std::filesystem::path(ex.get<std::string>()));
+					// exclude.push_back(std::filesystem::absolute(work_dir /
+					// ex.get<std::string>()));
+					exclude.push_back(std::filesystem::path(ex.get<std::string>()));
 			}
 			// 遍历目录，收集所有lua文件
 			for (const auto& entry :
 				 std::filesystem::recursive_directory_iterator(task["directory"])) {
 				if (entry.is_regular_file() && entry.path().extension() == ".lua") {
 					// std::string abs_path =
-						// std::filesystem::absolute(entry.path().string()).string();
-                    std::string path = entry.path().string();
+					// std::filesystem::absolute(entry.path().string()).string();
+					std::string path = entry.path().string();
 					// 文件没有变，不需要加入任务清单
 					// if (!ShouldProcessFile(abs_path, file_cache)) {
-						// continue;
+					// continue;
 					// }
-                    if(!ShouldProcessFile(entry.path().string(), file_cache)) {
-                        continue;
-                    }
+					if (!ShouldProcessFile(entry.path().string(), file_cache)) {
+						continue;
+					}
 
 					bool is_excluded = false;
 					for (const auto& ex : exclude) {
 						// if (abs_path.compare(0, ex.string().size(), ex.string()) == 0) {
-                        if(path.compare(0, ex.string().size(), ex.string()) == 0) {
+						if (path.compare(0, ex.string().size(), ex.string()) == 0) {
 							is_excluded = true;
 							break;
 						}
@@ -321,7 +324,7 @@ void JsonTask(const std::string& json_file)
 						continue;
 					}
 					// compress_tasks.push_back(abs_path);
-                    compress_tasks.push_back(path);
+					compress_tasks.push_back(path);
 				}
 			}
 		}
@@ -329,8 +332,9 @@ void JsonTask(const std::string& json_file)
 			std::vector<std::filesystem::path> exclude;
 			if (task.contains("exclude")) {
 				for (const auto& ex : task["exclude"]) {
-					// exclude.push_back(std::filesystem::absolute(work_dir / ex.get<std::string>()));
-                    exclude.push_back(std::filesystem::path(ex.get<std::string>()));
+					// exclude.push_back(std::filesystem::absolute(work_dir /
+					// ex.get<std::string>()));
+					exclude.push_back(std::filesystem::path(ex.get<std::string>()));
 				}
 			}
 
@@ -339,12 +343,12 @@ void JsonTask(const std::string& json_file)
 				 std::filesystem::recursive_directory_iterator(task["directory"])) {
 				if (entry.is_regular_file() && entry.path().extension() == ".lua") {
 					// std::string abs_path =
-						// std::filesystem::absolute(entry.path().string()).string();
-                    std::string path = entry.path().string();
+					// std::filesystem::absolute(entry.path().string()).string();
+					std::string path = entry.path().string();
 
 					// 文件没有变，不需要加入任务清单
 					// if (!ShouldProcessFile(abs_path, file_cache)) {
-                    if (!ShouldProcessFile(path, file_cache)) {
+					if (!ShouldProcessFile(path, file_cache)) {
 						continue;
 					}
 
@@ -352,7 +356,7 @@ void JsonTask(const std::string& json_file)
 
 					for (const auto& ex : exclude) {
 						// if (abs_path.compare(0, ex.string().size(), ex.string()) == 0) {
-                        if (path.compare(0, ex.string().size(), ex.string()) == 0) {
+						if (path.compare(0, ex.string().size(), ex.string()) == 0) {
 							is_excluded = true;
 							break;
 						}
@@ -362,7 +366,7 @@ void JsonTask(const std::string& json_file)
 						continue;
 					}
 					// format_tasks.push_back(abs_path);
-                    format_tasks.push_back(path);
+					format_tasks.push_back(path);
 				}
 			}
 		}

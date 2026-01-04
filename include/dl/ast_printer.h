@@ -643,7 +643,7 @@ private:
                     }
 				}
 			}
-			append(" do ");
+			append(" do");
 			enter_group();
 			print_stat(node.body_);
 			exit_group();
